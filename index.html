@@ -97,7 +97,7 @@
     <nav class="nav-links">
       <a href="#proyectos" data-es="Proyectos" data-en="Projects">Proyectos</a>
       <a class="hide-sm" href="https://www.linkedin.com/in/martí-fernandez-garrigos-1b9934265" target="_blank" rel="noopener">LinkedIn</a>
-      <a class="hide-sm" href="./CV_Marti_Fernandez.pdf">CV</a>
+      <a class="hide-sm" href="./CV_Marti_Fernandez.pdf" data-href-es="./CV_Marti_Fernandez.pdf" data-href-en="./CV_Marti_Fernandez_EN.pdf">CV</a>
       <a href="#contacto" data-es="Contacto" data-en="Contact">Contacto</a>
       <div class="lang" role="group" aria-label="Idioma / Language">
         <button class="lang-btn on" data-lang="es">ES</button>
@@ -191,8 +191,8 @@
   <div class="wrap foot-inner">
     <div class="foot-links">
       <a href="https://www.linkedin.com/in/martí-fernandez-garrigos-1b9934265" target="_blank" rel="noopener">LinkedIn</a>
-      <a href="./CV_Marti_Fernandez.pdf" data-es="Descargar CV" data-en="Download CV">Descargar CV</a>
-      <a href="mailto:martifernandezgarrigos8@gmail.com" data-es="martifernandezgarrigos8@gmail.com" data-en="martifernandezgarrigos8@gmail.com">martifernandezgarrigos8@gmail.com</a>
+      <a href="./CV_Marti_Fernandez.pdf" data-href-es="./CV_Marti_Fernandez.pdf" data-href-en="./CV_Marti_Fernandez_EN.pdf" data-es="Descargar CV" data-en="Download CV">Descargar CV</a>
+      <a href="mailto:Martí Fernandez Garrigós" data-es="martifernandezgarrigos8@gmail.com" data-en="martifernandezgarrigos8@gmail.com">martifernandezgarrigos8@gmail.com</a>
     </div>
     <div class="foot-note">© 2026 Martí Fernández Garrigós</div>
   </div>
@@ -205,6 +205,7 @@
     function setLang(l){
       document.documentElement.lang = l;
       nodes.forEach(function(n){ var v=n.getAttribute('data-'+l); if(v!=null) n.innerHTML=v; });
+      document.querySelectorAll('[data-href-es]').forEach(function(a){ var h=a.getAttribute('data-href-'+l); if(h) a.setAttribute('href', h); });
       btns.forEach(function(b){ b.classList.toggle('on', b.dataset.lang===l); });
       try{ localStorage.setItem('lang', l); }catch(e){}
     }
