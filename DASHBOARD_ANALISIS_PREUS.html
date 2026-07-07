@@ -93,6 +93,8 @@ body.light .nav-pill.active { background: rgba(70,112,224,0.10); }
 .fchip { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border2); font-size: 12px; cursor: pointer; background: transparent; color: var(--text2); font-family: var(--font); }
 .fchip:hover { color: var(--text); }
 .fchip[data-active="true"][data-type="all"] { background: rgba(255,255,255,0.06); border-color: var(--border2); color: var(--text); }
+.fchip[data-active="true"] { background: rgba(255,255,255,0.08); border-color: var(--border2); color: var(--text); }
+body.light .fchip[data-active="true"] { background: rgba(15,23,42,0.05); border-color: var(--border2); color: var(--text); }
 .fchip[data-active="true"][data-type="Polida"] { background: rgba(91,141,239,0.12); border-color: rgba(91,141,239,0.4); color: #7aadff; }
 .fchip[data-active="true"][data-type="Decapada"] { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.4); color: #fcd56a; }
 .fchip[data-active="true"][data-type="Galva"] { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.4); color: #6ee7bb; }
@@ -258,9 +260,6 @@ body.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   <div class="filterbar">
     <span class="filter-label">Tipus:</span>
     <button class="fchip" data-type="all" data-active="true">Tots</button>
-    <button class="fchip" data-type="Tipo A">Polida</button>
-    <button class="fchip" data-type="Tipo B">Decapada</button>
-    <button class="fchip" data-type="Tipo C">Galvanitzada</button>
     <div class="filter-sep"></div>
     <span class="filter-label">Rang:</span>
     <button class="rchip" data-range="all" data-active="true">Tot</button>
@@ -304,9 +303,6 @@ body.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         <div style="display:flex;flex-direction:column;gap:6px">
           <button class="btn-sm" id="sel-all">Seleccionar tots</button>
           <button class="btn-sm" id="sel-none">Netejar</button>
-          <button class="btn-sm" data-sel-type="Polida">Polida</button>
-          <button class="btn-sm" data-sel-type="Decapada">Decapada</button>
-          <button class="btn-sm" data-sel-type="Galva">Galva</button>
         </div>
       </div>
       <div class="card mb">
@@ -415,8 +411,40 @@ function avg(arr) {
   for (const x of arr) if (x != null) { s += x; n++; }
   return n > 0 ? s/n : null;
 }
+var TYPE_PALETTE = ['#5b8def','#fbbf24','#34d399','#f472b6','#a78bfa','#22d3ee','#fb923c','#4ade80','#e879f9','#38bdf8'];
+function typeList() { return [...new Set((App.data||[]).map(d => d.tipus).filter(v => v != null))]; }
 function tipusColor(t) {
-  return t === 'Polida' ? '#5b8def' : t === 'Decapada' ? '#fbbf24' : '#34d399';
+  var list = typeList();
+  var i = list.indexOf(t);
+  if (i < 0) i = 0;
+  return TYPE_PALETTE[i % TYPE_PALETTE.length];
+}
+function renderTypeChips() {
+  var types = typeList();
+  var bar = document.querySelector('.filterbar');
+  if (bar) {
+    bar.querySelectorAll('.fchip-dyn').forEach(function(b){ b.remove(); });
+    var ref = bar.querySelector('.fchip[data-type="all"]');
+    types.forEach(function(t){
+      var b = document.createElement('button');
+      b.className = 'fchip fchip-dyn';
+      b.setAttribute('data-type', t);
+      b.textContent = t;
+      if (ref) { ref.insertAdjacentElement('afterend', b); ref = b; }
+    });
+  }
+  var wrap = document.querySelector('.art-select-wrap');
+  if (wrap) {
+    wrap.querySelectorAll('.btn-sm[data-sel-type]').forEach(function(b){ b.remove(); });
+    var col = wrap.querySelector('div');
+    if (col) types.forEach(function(t){
+      var b = document.createElement('button');
+      b.className = 'btn-sm';
+      b.setAttribute('data-sel-type', t);
+      b.textContent = t;
+      col.appendChild(b);
+    });
+  }
 }
 
 let snackTimer = null;
@@ -586,6 +614,7 @@ function handleFile(file) {
       App.data = data;
       App.periods = periods;
       App.filters.rangeStart = 0;
+      renderTypeChips();
       invalidate();
       showApp();
       snack(`<span class="accent">${data.length}</span> articles · <span class="accent">${periods.length}</span> trimestres carregats`, true);
@@ -750,7 +779,7 @@ function renderOverviewChart() {
 function renderDonut() {
   destroyChart('donut');
   const { stats } = getComputed();
-  const types = ['Polida','Decapada','Galva'].filter(t => stats.some(s => s.tipus === t));
+  const types = [...new Set(stats.map(s => s.tipus))].filter(t => stats.some(s => s.tipus === t));
   const vals = types.map(t => {
     const ls = stats.filter(s => s.tipus === t).map(s => s.last.val).filter(v => v != null);
     return ls.length ? parseFloat(avg(ls).toFixed(1)) : 0;
@@ -815,7 +844,7 @@ function renderMainTable() {
     return `<tr class="clickable" data-code="${esc(s.code)}">
       <td class="code">${esc(s.code)}</td>
       <td class="primary desc-cell" title="${esc(s.desc)}">${esc(s.desc)}</td>
-      <td><span class="badge b-${esc(s.tipus.toLowerCase())}">${esc(s.tipus)}</span></td>
+      <td><span class="badge" style="background:${tipusColor(s.tipus)}22;color:${tipusColor(s.tipus)};border:1px solid ${tipusColor(s.tipus)}55">${esc(s.tipus)}</span></td>
       <td class="r primary">${fmt(s.last.val)}</td>
       <td class="r ${trimCls}">${fmtPct(s.trimVar)}</td>
       <td class="r ${yearCls}">${fmtPct(s.yearVar)}</td>
@@ -1232,7 +1261,7 @@ function renderAlertTable() {
     <tr class="clickable" data-code="${esc(s.code)}">
       <td class="code">${esc(s.code)}</td>
       <td class="primary desc-cell" title="${esc(s.desc)}">${esc(s.desc)}</td>
-      <td><span class="badge b-${esc(s.tipus.toLowerCase())}">${esc(s.tipus)}</span></td>
+      <td><span class="badge" style="background:${tipusColor(s.tipus)}22;color:${tipusColor(s.tipus)};border:1px solid ${tipusColor(s.tipus)}55">${esc(s.tipus)}</span></td>
       <td class="r">${fmt(s.prev.val)}</td>
       <td class="r">${fmt(s.last.val)}</td>
       <td class="r ${s.trimVar>0?'chg-up':'chg-dn'}">${s.trimVar>0?'+':''}${fmt(s.last.val-s.prev.val)}</td>
@@ -1294,13 +1323,14 @@ function bindEvents() {
     btn.addEventListener('click', () => navigateTo(btn.dataset.page));
   });
 
-  $$('.fchip[data-type]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      App.filters.type = btn.dataset.type;
-      $$('.fchip').forEach(b => b.dataset.active = 'false');
-      btn.dataset.active = 'true';
-      rerender();
-    });
+  const _fbar = document.querySelector('.filterbar');
+  if (_fbar) _fbar.addEventListener('click', e => {
+    const btn = e.target.closest('.fchip[data-type]');
+    if (!btn) return;
+    App.filters.type = btn.dataset.type;
+    $$('.fchip').forEach(b => b.dataset.active = 'false');
+    btn.dataset.active = 'true';
+    rerender();
   });
 
   $$('.rchip[data-range]').forEach(btn => {
@@ -1339,15 +1369,16 @@ function bindEvents() {
     $$('#art-select option').forEach(o => o.selected = false);
     syncSelectedFromUI(); renderTemporalChart(); renderYoY(); renderQoQ();
   });
-  $$('.art-select-wrap .btn-sm[data-sel-type]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const t = btn.dataset.selType;
-      $$('#art-select option').forEach(o => {
-        const d = App.data.find(x => x.code === o.value);
-        o.selected = !!(d && d.tipus === t);
-      });
-      syncSelectedFromUI(); renderTemporalChart(); renderYoY(); renderQoQ();
+  const _asw = document.querySelector('.art-select-wrap');
+  if (_asw) _asw.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-sm[data-sel-type]');
+    if (!btn) return;
+    const t = btn.dataset.selType;
+    $$('#art-select option').forEach(o => {
+      const d = App.data.find(x => x.code === o.value);
+      o.selected = !!(d && d.tipus === t);
     });
+    syncSelectedFromUI(); renderTemporalChart(); renderYoY(); renderQoQ();
   });
 
   $('#theme-btn').addEventListener('click', () => {
