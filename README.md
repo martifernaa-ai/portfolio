@@ -2,7 +2,7 @@
 
 Perfil híbrido **negocio + tecnología**: herramientas internas que leen **Excel** y **PDF** y los convierten en **dashboards** y controles automáticos. Graduado en Contabilidad y Finanzas y estudiante de Ingeniería Informática, aplicando análisis de datos y automatización a procesos industriales reales.
 
-🔗 **Web en vivo:** https://TU-USUARIO.github.io/portafolio/
+🔗 **Web en vivo:** https://martifernaa-ai.github.io/portfolio/
 💼 **LinkedIn:** https://www.linkedin.com/in/martí-fernandez-garrigos-1b9934265
 
 > *[English version below](#english)*
