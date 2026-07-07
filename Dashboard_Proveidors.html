@@ -1,0 +1,2538 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Comandes BI — Dashboard de Proveïdors</title>
+
+<!-- ============================================================
+     LLIBRERIES EXTERNES (CDN)
+============================================================ -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.2/dist/css/tabulator.min.css">
+<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/customParseFormat.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+  ============================================================ */
+  :root {
+    --bg-app: #f6f7fb;
+    --bg-surface: #ffffff;
+    --bg-sidebar: #0f172a;
+    --bg-sidebar-hover: #1e293b;
+    --bg-sidebar-active: #1e40af;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --text-on-sidebar: #cbd5e1;
+    --text-on-sidebar-muted: #64748b;
+    --border-subtle: #e5e7eb;
+    --border-strong: #d1d5db;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --success: #16a34a;
+    --success-soft: #dcfce7;
+    --warning: #f59e0b;
+    --warning-soft: #fef3c7;
+    --danger: #dc2626;
+    --danger-soft: #fee2e2;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-md: 0 4px 12px rgba(15,23,42,0.06);
+    --shadow-lg: 0 12px 32px rgba(15,23,42,0.08);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --transition: 180ms cubic-bezier(.4,0,.2,1);
+  }
+  html[data-theme="dark"] {
+    --bg-app: #0b1120;
+    --bg-surface: #111827;
+    --bg-sidebar: #060912;
+    --bg-sidebar-hover: #111827;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border-subtle: #1f2937;
+    --border-strong: #334155;
+    --accent-soft: #1e3a8a;
+    --success-soft: #14532d;
+    --warning-soft: #78350f;
+    --danger-soft: #7f1d1d;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    height: 100vh;
+    transition: grid-template-columns var(--transition);
+  }
+  .app-shell[data-collapsed="true"] { grid-template-columns: 64px 1fr; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    background: var(--bg-sidebar);
+    color: var(--text-on-sidebar);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-brand {
+    padding: 20px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .sidebar-brand-mark {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    color: white; font-weight: 700; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .sidebar-brand-text { font-weight: 600; font-size: 15px; color: white; white-space: nowrap; }
+  .sidebar-brand-subtext { font-size: 11px; color: var(--text-on-sidebar-muted); white-space: nowrap; }
+
+  .sidebar-nav { padding: 12px 8px; flex: 1; overflow-y: auto; }
+  .sidebar-section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-on-sidebar-muted);
+    padding: 14px 10px 6px;
+    font-weight: 600;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text-on-sidebar);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+    font-size: 13.5px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .nav-item:hover { background: var(--bg-sidebar-hover); color: white; }
+  .nav-item.active { background: var(--bg-sidebar-active); color: white; font-weight: 500; }
+  .nav-item i { font-size: 18px; flex-shrink: 0; }
+  .sidebar[data-collapsed="true"] .nav-label,
+  .sidebar[data-collapsed="true"] .sidebar-brand-text,
+  .sidebar[data-collapsed="true"] .sidebar-brand-subtext,
+  .sidebar[data-collapsed="true"] .sidebar-section-label { display: none; }
+
+  .sidebar-footer {
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 11px;
+    color: var(--text-on-sidebar-muted);
+  }
+  .sidebar[data-collapsed="true"] .sidebar-footer { display: none; }
+
+  /* ===== MAIN ===== */
+  .main { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  .header {
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .header-titles { flex-shrink: 0; min-width: 0; }
+  .header-title { font-size: 18px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+  .header-subtitle { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+
+  .search-box {
+    flex: 1;
+    max-width: 420px;
+    position: relative;
+    min-width: 180px;
+  }
+  .search-box input {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    background: var(--bg-app);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--text-primary);
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .search-box input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .search-box i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: 16px;
+    pointer-events: none;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--bg-app); border-color: var(--border-strong); }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+  .btn i { font-size: 16px; }
+  .btn-icon { padding: 8px; }
+
+  .last-update {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex; align-items: center; gap: 6px;
+    margin-left: auto;
+  }
+  .last-update .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: var(--bg-app);
+  }
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 220ms ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== FILTERS BAR ===== */
+  .filters-bar {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .filters-bar select, .filters-bar input[type="date"] {
+    padding: 7px 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color var(--transition);
+    font-family: inherit;
+    max-width: 220px;
+  }
+  .filters-bar select:focus, .filters-bar input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .filter-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .filter-chip i { cursor: pointer; font-size: 14px; flex-shrink: 0; }
+
+  /* ===== KPI CARDS ===== */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card.clickable { cursor: pointer; }
+  .kpi-card.clickable:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .kpi-label i { font-size: 15px; }
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .kpi-value-small { font-size: 16px; }
+  .kpi-sub {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .kpi-card[data-accent="success"] { border-left: 3px solid var(--success); }
+  .kpi-card[data-accent="warning"] { border-left: 3px solid var(--warning); }
+  .kpi-card[data-accent="danger"]  { border-left: 3px solid var(--danger); }
+  .kpi-card[data-accent="accent"]  { border-left: 3px solid var(--accent); }
+
+  /* ===== CHARTS ===== */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .chart-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    position: relative;
+    min-width: 0;
+  }
+  .chart-card h3 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .chart-card h3 .chart-action {
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    transition: color var(--transition);
+  }
+  .chart-card h3 .chart-action:hover { color: var(--accent); }
+  .chart-container { height: 280px; width: 100%; }
+  .chart-container-tall { height: 340px; }
+
+  .chart-card.fullscreen {
+    position: fixed;
+    inset: 24px;
+    z-index: 1200;
+    padding: 24px;
+    box-shadow: var(--shadow-lg);
+  }
+  .chart-card.fullscreen .chart-container,
+  .chart-card.fullscreen .chart-container-tall {
+    height: calc(100% - 50px);
+  }
+
+  .col-12 { grid-column: span 12; }
+  .col-8  { grid-column: span 8; }
+  .col-6  { grid-column: span 6; }
+  .col-4  { grid-column: span 4; }
+  @media (max-width: 1024px) {
+    .col-8, .col-6, .col-4 { grid-column: span 12; }
+  }
+
+  /* ===== TABLE ===== */
+  .table-wrapper {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px;
+  }
+  .table-toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .table-toolbar input {
+    padding: 7px 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    min-width: 220px;
+    font-family: inherit;
+  }
+  .table-toolbar input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* Tabulator personalitzat */
+  .tabulator { border: none; background: transparent; font-family: inherit; }
+  .tabulator .tabulator-header {
+    background: var(--bg-app);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .tabulator .tabulator-header .tabulator-col {
+    background: transparent;
+    border-right: 1px solid var(--border-subtle);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }
+  .tabulator .tabulator-header .tabulator-col.tabulator-sortable:hover { background: var(--bg-surface); }
+  .tabulator-row { background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); }
+  .tabulator-row:hover { background: var(--bg-app) !important; }
+  .tabulator-row .tabulator-cell {
+    border-right: 1px solid var(--border-subtle);
+    font-size: 12.5px;
+    color: var(--text-primary);
+    padding: 10px 8px;
+  }
+  .tabulator .tabulator-footer {
+    background: var(--bg-app);
+    border-top: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+  }
+  .tabulator-row.tabulator-selected { background: var(--accent-soft) !important; }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .status-pill.rebuda { background: var(--success-soft); color: var(--success); }
+  .status-pill.pendent { background: var(--warning-soft); color: var(--warning); }
+  .status-pill.retard { background: var(--danger-soft); color: var(--danger); }
+  html[data-theme="dark"] .status-pill.rebuda { color: #86efac; }
+  html[data-theme="dark"] .status-pill.pendent { color: #fcd34d; }
+  html[data-theme="dark"] .status-pill.retard { color: #fca5a5; }
+
+  /* ===== DROPZONE ===== */
+  .dropzone-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .dropzone-overlay.active { display: flex; }
+  .dropzone {
+    background: var(--bg-surface);
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 60px 80px;
+    text-align: center;
+    max-width: 500px;
+    box-shadow: var(--shadow-lg);
+    pointer-events: auto;
+  }
+  .dropzone.drag-over {
+    background: var(--accent-soft);
+    transform: scale(1.02);
+  }
+  .dropzone i.dropzone-icon { font-size: 48px; color: var(--accent); margin-bottom: 16px; display: block; }
+  .dropzone h2 { font-size: 18px; margin: 0 0 8px; color: var(--text-primary); }
+  .dropzone p { color: var(--text-secondary); margin: 0 0 20px; font-size: 13px; }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-secondary);
+  }
+  .empty-state i { font-size: 56px; color: var(--text-muted); margin-bottom: 16px; display: block; }
+  .empty-state h3 { color: var(--text-primary); font-size: 17px; margin: 0 0 8px; }
+  .empty-state p { margin: 0; }
+
+  /* ===== TOAST ===== */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    box-shadow: var(--shadow-lg);
+    min-width: 280px;
+    font-size: 13px;
+    animation: slideIn 220ms ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+    transition: opacity 220ms;
+  }
+  .toast.success { border-left-color: var(--success); }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.warning { border-left-color: var(--warning); }
+  .toast i { font-size: 18px; }
+  .toast.success i { color: var(--success); }
+  .toast.error i { color: var(--danger); }
+  .toast.warning i { color: var(--warning); }
+  @keyframes slideIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="appShell">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-mark">CB</div>
+      <div>
+        <div class="sidebar-brand-text">Comandes BI</div>
+        <div class="sidebar-brand-subtext">Control de proveïdors</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-label">Anàlisi</div>
+      <div class="nav-item active" data-view="dashboard">
+        <i class="ti ti-layout-dashboard"></i>
+        <span class="nav-label">Dashboard</span>
+      </div>
+      <div class="nav-item" data-view="pendents">
+        <i class="ti ti-clock-hour-4"></i>
+        <span class="nav-label">Comandes pendents</span>
+      </div>
+      <div class="nav-item" data-view="historics">
+        <i class="ti ti-history"></i>
+        <span class="nav-label">Històrics</span>
+      </div>
+      <div class="nav-item" data-view="proveidors">
+        <i class="ti ti-truck-delivery"></i>
+        <span class="nav-label">Proveïdors</span>
+      </div>
+      <div class="nav-item" data-view="articles">
+        <i class="ti ti-package"></i>
+        <span class="nav-label">Articles</span>
+      </div>
+      <div class="nav-item" data-view="analytics">
+        <i class="ti ti-chart-line"></i>
+        <span class="nav-label">Analytics</span>
+      </div>
+
+      <div class="sidebar-section-label">Sistema</div>
+      <div class="nav-item" data-view="config">
+        <i class="ti ti-settings"></i>
+        <span class="nav-label">Configuració</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div id="sidebarStats">Sense dades carregades</div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+
+    <header class="header">
+      <button class="btn btn-icon" id="btnCollapseSidebar" title="Plegar/desplegar menú">
+        <i class="ti ti-menu-2"></i>
+      </button>
+
+      <div class="header-titles">
+        <div class="header-title" id="viewTitle">Dashboard</div>
+        <div class="header-subtitle" id="viewSubtitle">Vista general de comandes</div>
+      </div>
+
+      <div class="search-box">
+        <i class="ti ti-search"></i>
+        <input type="text" id="globalSearch" placeholder="Cerca article, descripció, proveïdor, comanda, família..." />
+      </div>
+
+      <button class="btn btn-icon" id="btnTheme" title="Canviar tema">
+        <i class="ti ti-moon" id="themeIcon"></i>
+      </button>
+      <button class="btn" id="btnExportCsv" title="Exportar dades filtrades a CSV">
+        <i class="ti ti-download"></i>
+        <span>Exportar</span>
+      </button>
+      <button class="btn btn-primary" id="btnUpload">
+        <i class="ti ti-upload"></i>
+        <span>Pujar Excel</span>
+      </button>
+
+      <div class="last-update" id="lastUpdate">
+        <span class="dot"></span>
+        <span>Sense actualitzar</span>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+
+      <!-- FILTRES (només a Dashboard, Pendents, Històrics, Proveïdors, Articles, Analytics) -->
+      <div class="filters-bar" id="filtersBar" style="display:none;">
+        <span class="filter-label">Filtres:</span>
+        <select id="filterEstat">
+          <option value="">Tots els estats</option>
+          <option value="N">Pendents</option>
+          <option value="S">Rebudes</option>
+        </select>
+        <select id="filterProveidor"><option value="">Tots els proveïdors</option></select>
+        <select id="filterFamilia"><option value="">Totes les famílies</option></select>
+        <select id="filterArticle"><option value="">Tots els articles</option></select>
+        <input type="date" id="filterDateFrom" title="Data des de" />
+        <input type="date" id="filterDateTo"   title="Data fins a" />
+        <button class="btn" id="btnClearFilters">
+          <i class="ti ti-x"></i> Netejar
+        </button>
+        <div id="activeFiltersChips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- ===== VISTA: DASHBOARD ===== -->
+      <section class="view active" id="view-dashboard">
+        <div id="dashboardEmpty" class="empty-state">
+          <i class="ti ti-file-spreadsheet"></i>
+          <h3>Encara no hi ha dades</h3>
+          <p>Puja un fitxer Excel per començar. Pots fer drag &amp; drop o utilitzar el botó "Pujar Excel".</p>
+          <button class="btn btn-primary" id="btnUploadEmpty" style="margin-top:16px;">
+            <i class="ti ti-upload"></i> Pujar el primer Excel
+          </button>
+        </div>
+
+        <div id="dashboardContent" style="display:none;">
+          <div class="kpi-grid" id="kpiGrid"></div>
+
+          <div class="chart-grid">
+            <div class="chart-card col-8">
+              <h3>Evolució mensual (comandes vs import)
+                <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartEvolucio"></i>
+              </h3>
+              <div class="chart-container chart-container-tall" id="chartEvolucio"></div>
+            </div>
+            <div class="chart-card col-4">
+              <h3>Estat de comandes
+                <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartEstat"></i>
+              </h3>
+              <div class="chart-container chart-container-tall" id="chartEstat"></div>
+            </div>
+
+            <div class="chart-card col-6">
+              <h3>Top 10 proveïdors per import
+                <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartTopProveidors"></i>
+              </h3>
+              <div class="chart-container" id="chartTopProveidors"></div>
+            </div>
+            <div class="chart-card col-6">
+              <h3>Top 10 famílies d'article
+                <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartTopFamilies"></i>
+              </h3>
+              <div class="chart-container" id="chartTopFamilies"></div>
+            </div>
+
+            <div class="chart-card col-12">
+              <h3>Heatmap de comandes per dia
+                <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartHeatmap"></i>
+              </h3>
+              <div class="chart-container" id="chartHeatmap"></div>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <div class="table-toolbar">
+              <h3 style="margin:0; font-size:14px; font-weight:600;">Detall de comandes</h3>
+              <input type="text" id="tableSearch" placeholder="Cerca dins la taula..." style="margin-left:auto;" />
+              <button class="btn" id="btnTableExport">
+                <i class="ti ti-file-export"></i> Exportar Excel
+              </button>
+            </div>
+            <div id="mainTable"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== VISTA: PENDENTS ===== -->
+      <section class="view" id="view-pendents">
+        <div class="kpi-grid" id="pendentsKpi"></div>
+        <div class="chart-grid">
+          <div class="chart-card col-12">
+            <h3>Comandes pendents per proveïdor
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartPendentsProv"></i>
+            </h3>
+            <div class="chart-container" id="chartPendentsProv"></div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <div class="table-toolbar">
+            <h3 style="margin:0; font-size:14px; font-weight:600;">Llista de pendents</h3>
+            <input type="text" id="pendentsSearch" placeholder="Cerca..." style="margin-left:auto;" />
+          </div>
+          <div id="pendentsTable"></div>
+        </div>
+      </section>
+
+      <!-- ===== VISTA: HISTÒRICS ===== -->
+      <section class="view" id="view-historics">
+        <div class="chart-grid">
+          <div class="chart-card col-12">
+            <h3>Evolució històrica (import per mes)
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartHistImport"></i>
+            </h3>
+            <div class="chart-container chart-container-tall" id="chartHistImport"></div>
+          </div>
+          <div class="chart-card col-6">
+            <h3>Pendents vs Rebudes per mes
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartHistPR"></i>
+            </h3>
+            <div class="chart-container" id="chartHistPR"></div>
+          </div>
+          <div class="chart-card col-6">
+            <h3>Comparativa anual
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartHistAnnual"></i>
+            </h3>
+            <div class="chart-container" id="chartHistAnnual"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== VISTA: PROVEÏDORS ===== -->
+      <section class="view" id="view-proveidors">
+        <div class="chart-grid">
+          <div class="chart-card col-12">
+            <h3>Ranking de proveïdors
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartRankProv"></i>
+            </h3>
+            <div class="chart-container chart-container-tall" id="chartRankProv"></div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <div class="table-toolbar">
+            <h3 style="margin:0; font-size:14px; font-weight:600;">Resum per proveïdor</h3>
+            <input type="text" id="provSearch" placeholder="Cerca proveïdor..." style="margin-left:auto;" />
+          </div>
+          <div id="provTable"></div>
+        </div>
+      </section>
+
+      <!-- ===== VISTA: ARTICLES ===== -->
+      <section class="view" id="view-articles">
+        <div class="chart-grid">
+          <div class="chart-card col-12">
+            <h3>Articles més demanats
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartTopArt"></i>
+            </h3>
+            <div class="chart-container chart-container-tall" id="chartTopArt"></div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <div class="table-toolbar">
+            <h3 style="margin:0; font-size:14px; font-weight:600;">Resum per article</h3>
+            <input type="text" id="artSearch" placeholder="Cerca article..." style="margin-left:auto;" />
+          </div>
+          <div id="artTable"></div>
+        </div>
+      </section>
+
+      <!-- ===== VISTA: ANALYTICS ===== -->
+      <section class="view" id="view-analytics">
+        <div class="kpi-grid" id="analyticsKpi"></div>
+        <div class="chart-grid">
+          <div class="chart-card col-6">
+            <h3>Distribució per rang d'import
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartImportRange"></i>
+            </h3>
+            <div class="chart-container" id="chartImportRange"></div>
+          </div>
+          <div class="chart-card col-6">
+            <h3>Dies de retard (top 15 comandes)
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartRetards"></i>
+            </h3>
+            <div class="chart-container" id="chartRetards"></div>
+          </div>
+          <div class="chart-card col-12">
+            <h3>Forecast simple (mitjana mòbil 3 mesos)
+              <i class="ti ti-arrows-maximize chart-action" data-fullscreen="chartForecast"></i>
+            </h3>
+            <div class="chart-container chart-container-tall" id="chartForecast"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== VISTA: CONFIGURACIÓ ===== -->
+      <section class="view" id="view-config">
+        <div class="table-wrapper" style="max-width:700px;">
+          <h3 style="margin:0 0 16px; font-size:15px;">Configuració</h3>
+          <div style="display:flex; flex-direction:column; gap:18px;">
+            <div>
+              <div style="font-weight:500; margin-bottom:4px;">Persistència de dades</div>
+              <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">
+                Les dades del darrer Excel s'emmagatzemen localment al teu navegador (IndexedDB).
+              </p>
+              <button class="btn" id="btnClearStorage">
+                <i class="ti ti-trash"></i> Esborrar dades locals
+              </button>
+            </div>
+            <div>
+              <div style="font-weight:500; margin-bottom:4px;">Format de data</div>
+              <select id="dateFormatPref" style="padding:7px 10px; border:1px solid var(--border-subtle); border-radius:var(--radius-sm); background:var(--bg-surface); color:var(--text-primary);">
+                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-weight:500; margin-bottom:4px;">Llindar d'alerta de retard (dies)</div>
+              <input type="number" id="alertThreshold" value="7" min="0" style="padding:7px 10px; border:1px solid var(--border-subtle); border-radius:var(--radius-sm); width:120px; background:var(--bg-surface); color:var(--text-primary);" />
+            </div>
+            <div>
+              <div style="font-weight:500; margin-bottom:4px;">Columnes Excel esperades</div>
+              <p style="font-size:12px; color:var(--text-secondary); margin:0;">
+                Comanda · Article · Descripció Article · Codi Família Article · Família Article Descripcio ·
+                Quantitat · Ordre.Fab · D.Entrega · Data · Import · Client/Prove · Raó Social Proveidor · Cancel.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ===== DROPZONE OVERLAY ===== -->
+<div class="dropzone-overlay" id="dropzoneOverlay">
+  <div class="dropzone" id="dropzoneBox">
+    <i class="ti ti-cloud-upload dropzone-icon"></i>
+    <h2>Puja el fitxer Excel</h2>
+    <p>Arrossega aquí el fitxer .xlsx o .xls, o fes clic per seleccionar-lo.</p>
+    <button class="btn btn-primary" id="btnSelectFile">
+      <i class="ti ti-folder-open"></i> Seleccionar fitxer
+    </button>
+    <button class="btn" id="btnCloseDropzone" style="margin-left:8px;">Cancel·lar</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;" />
+  </div>
+</div>
+
+<!-- ===== TOAST CONTAINER ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ==========================================================================
+   COMANDES BI — Dashboard de control de comandes a proveïdors
+   --------------------------------------------------------------------------
+   Arquitectura modular en un sol fitxer (per execució local sense build):
+     · UTILS      → Formatters, Helpers, DateUtils
+     · STATE      → Store reactiu (patró Zustand-like)
+     · SERVICES   → ExcelService, StorageService
+     · UI         → Toast
+     · COMPONENTS → KPIs, Filtres, Taules
+     · CHARTS     → ECharts (totes les vistes)
+     · APP        → Orquestració i bootstrap
+   ========================================================================== */
+
+/* ==========================================================================
+   UTILS — Formatters
+   ========================================================================== */
+const Formatters = {
+  currency(value) {
+    if (value == null || isNaN(value)) return '—';
+    return new Intl.NumberFormat('ca-ES', {
+      style: 'currency', currency: 'EUR',
+      minimumFractionDigits: 0, maximumFractionDigits: 0
+    }).format(value);
+  },
+  currencyCompact(value) {
+    if (value == null || isNaN(value)) return '—';
+    return new Intl.NumberFormat('ca-ES', {
+      style: 'currency', currency: 'EUR',
+      notation: 'compact', maximumFractionDigits: 1
+    }).format(value);
+  },
+  number(value) {
+    if (value == null || isNaN(value)) return '—';
+    return new Intl.NumberFormat('ca-ES').format(value);
+  },
+  percent(value, decimals = 1) {
+    if (value == null || isNaN(value)) return '—';
+    return value.toFixed(decimals) + '%';
+  },
+  date(value, pattern = 'DD/MM/YYYY') {
+    if (!value) return '—';
+    const d = dayjs(value);
+    return d.isValid() ? d.format(pattern) : '—';
+  },
+  /** Escapa HTML per evitar injecció en innerHTML */
+  escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+};
+
+/* ==========================================================================
+   UTILS — Helpers
+   ========================================================================== */
+const Helpers = {
+  debounce(fn, ms = 250) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  },
+  /** Normalitza per a cerques (sense accents, minúscules) */
+  normalize(str) {
+    return (str ?? '').toString().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+};
+
+/* ==========================================================================
+   UTILS — Dates
+   --------------------------------------------------------------------------
+   Suporta dates en serial Excel, Date natiu, strings habituals (DD/MM/YYYY,
+   ISO, etc.) i retorna sempre un objecte Day.js o null.
+   ========================================================================== */
+dayjs.extend(dayjs_plugin_customParseFormat);
+
+const DateUtils = {
+  parse(value) {
+    if (value == null || value === '') return null;
+    // Date natiu (quan cellDates:true a SheetJS)
+    if (value instanceof Date) {
+      const d = dayjs(value);
+      return d.isValid() ? d : null;
+    }
+    // Serial Excel
+    if (typeof value === 'number') {
+      const utc = Math.round((value - 25569) * 86400 * 1000);
+      const d = dayjs(utc);
+      return d.isValid() ? d : null;
+    }
+    // Strings amb formats coneguts (strict mode)
+    const formats = ['DD/MM/YYYY','D/M/YYYY','YYYY-MM-DD','DD-MM-YYYY','MM/DD/YYYY','YYYY/MM/DD'];
+    for (const f of formats) {
+      const d = dayjs(value, f, true);
+      if (d.isValid()) return d;
+    }
+    const fallback = dayjs(value);
+    return fallback.isValid() ? fallback : null;
+  },
+  /** Dies de retard fins avui (0 si encara no és vençuda) */
+  daysOverdue(dEntrega) {
+    if (!dEntrega) return 0;
+    const diff = dayjs().startOf('day').diff(dEntrega.startOf('day'), 'day');
+    return diff > 0 ? diff : 0;
+  }
+};
+
+/* ==========================================================================
+   STATE — Store reactiu central
+   ========================================================================== */
+class Store {
+  constructor() {
+    this.state = {
+      raw: [],
+      lastUpdate: null,
+      filters: {
+        estat: '', proveidor: '', familia: '', article: '',
+        dateFrom: null, dateTo: null, search: ''
+      },
+      view: 'dashboard',
+      theme: 'light',
+      sidebarCollapsed: false,
+      config: { dateFormat: 'DD/MM/YYYY', alertThreshold: 7 }
+    };
+    this.listeners = new Set();
+  }
+  setState(patch) {
+    this.state = { ...this.state, ...patch };
+    this._notify();
+  }
+  /** Actualitza només filtres (mantenint la resta de l'estat) */
+  setFilters(patch) {
+    this.state = { ...this.state, filters: { ...this.state.filters, ...patch } };
+    this._notify();
+  }
+  subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  _notify() { this.listeners.forEach(fn => { try { fn(this.state); } catch (e) { console.error(e); } }); }
+
+  /** Aplica filtres actius a les dades */
+  getFiltered() {
+    const { raw, filters } = this.state;
+    const search = Helpers.normalize(filters.search);
+    return raw.filter(row => {
+      if (filters.estat && row.estat !== filters.estat) return false;
+      if (filters.proveidor && row.proveidor !== filters.proveidor) return false;
+      if (filters.familia && row.familia !== filters.familia) return false;
+      if (filters.article && row.article !== filters.article) return false;
+      if (filters.dateFrom && row.data && row.data.isBefore(filters.dateFrom, 'day')) return false;
+      if (filters.dateTo   && row.data && row.data.isAfter(filters.dateTo, 'day'))   return false;
+      if (search) {
+        const blob = Helpers.normalize(
+          `${row.comanda} ${row.article} ${row.descripcio} ${row.proveidor} ${row.familia}`
+        );
+        if (!blob.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+}
+
+const store = new Store();
+
+/* ==========================================================================
+   SERVICES — Excel
+   ========================================================================== */
+const ExcelService = {
+  COLUMN_MAP: {
+    'Comanda': 'comanda',
+    'Article': 'article',
+    'Descripció Article': 'descripcio',
+    'Descripcio Article': 'descripcio',
+    'Codi Família Article': 'codiFamilia',
+    'Codi Familia Article': 'codiFamilia',
+    'Família Article Descripcio': 'familia',
+    'Familia Article Descripcio': 'familia',
+    'Quantitat': 'quantitat',
+    'Ordre.Fab': 'ordreFab',
+    'D.Entrega': 'dEntrega',
+    'Data': 'data',
+    'Import': 'import_',
+    'Client/Prove': 'clientProv',
+    'Raó Social Proveidor': 'proveidor',
+    'Rao Social Proveidor': 'proveidor',
+    'Cancel.': 'estat',
+    'Cancel': 'estat'
+  },
+
+  async parse(file) {
+    const buffer = await file.arrayBuffer();
+    // cellDates:true → SheetJS retorna Date directament per dates
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!firstSheet) throw new Error('El fitxer no conté cap pestanya');
+    const rawRows = XLSX.utils.sheet_to_json(firstSheet, { defval: null, raw: true });
+    return rawRows.map((row, idx) => this._normalizeRow(row, idx));
+  },
+
+  _normalizeRow(row, idx) {
+    const out = { _id: idx };
+    for (const [excelKey, internalKey] of Object.entries(this.COLUMN_MAP)) {
+      if (row[excelKey] !== undefined && out[internalKey] === undefined) {
+        out[internalKey] = row[excelKey];
+      }
+    }
+    out.quantitat  = Number(out.quantitat) || 0;
+    out.import_    = Number(out.import_)   || 0;
+    out.data       = DateUtils.parse(out.data);
+    out.dEntrega   = DateUtils.parse(out.dEntrega);
+    out.estat      = (out.estat || '').toString().trim().toUpperCase();
+    out.proveidor  = (out.proveidor  || 'Sense proveïdor').toString().trim();
+    out.article    = (out.article    || '').toString().trim();
+    out.descripcio = (out.descripcio || '').toString().trim();
+    out.familia    = (out.familia    || 'Sense família').toString().trim();
+    out.comanda    = (out.comanda    || '').toString().trim();
+    out.ordreFab   = (out.ordreFab   || '').toString().trim();
+    out.diesRetard = (out.estat === 'N') ? DateUtils.daysOverdue(out.dEntrega) : 0;
+    // Camps auxiliars per ordenació/format precalculats
+    out.dataISO     = out.data     ? out.data.format('YYYY-MM-DD')     : '';
+    out.dEntregaISO = out.dEntrega ? out.dEntrega.format('YYYY-MM-DD') : '';
+    return out;
+  }
+};
+
+/* ==========================================================================
+   SERVICES — IndexedDB (clau-valor)
+   ========================================================================== */
+const StorageService = {
+  DB_NAME: 'comandesBI',
+  STORE: 'kv',
+  _db: null,
+
+  async _open() {
+    if (this._db) return this._db;
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.DB_NAME, 1);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.STORE)) db.createObjectStore(this.STORE);
+      };
+      req.onsuccess = e => { this._db = e.target.result; resolve(this._db); };
+      req.onerror   = e => reject(e.target.error);
+    });
+  },
+  async set(key, value) {
+    const db = await this._open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.STORE, 'readwrite');
+      tx.objectStore(this.STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    });
+  },
+  async get(key) {
+    const db = await this._open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.STORE, 'readonly');
+      const req = tx.objectStore(this.STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = e => reject(e.target.error);
+    });
+  },
+  async clear() {
+    const db = await this._open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.STORE, 'readwrite');
+      tx.objectStore(this.STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+};
+
+/* ==========================================================================
+   UI — Toast
+   ========================================================================== */
+const Toast = {
+  show(msg, type = 'info', timeout = 3000) {
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icon = ({ success: 'circle-check', error: 'alert-circle', warning: 'alert-triangle', info: 'info-circle' })[type] || 'info-circle';
+    el.innerHTML = `<i class="ti ti-${icon}"></i><span></span>`;
+    el.querySelector('span').textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 240);
+    }, timeout);
+  }
+};
+
+/* ==========================================================================
+   CHARTS — gestió d'instàncies ECharts
+   --------------------------------------------------------------------------
+   IMPORTANT: cada instància es crea un sol cop; el handler de resize es
+   registra una sola vegada a nivell global (no per instància) per evitar
+   acumular listeners cada cop que es re-renderitza.
+   ========================================================================== */
+const ChartManager = {
+  instances: {},
+  _resizeBound: false,
+
+  get(id) {
+    if (!this.instances[id]) {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      this.instances[id] = echarts.init(el, null, { renderer: 'canvas' });
+    }
+    this._bindResize();
+    return this.instances[id];
+  },
+
+  _bindResize() {
+    if (this._resizeBound) return;
+    this._resizeBound = true;
+    const handler = Helpers.debounce(() => {
+      Object.values(this.instances).forEach(c => c && c.resize && c.resize());
+    }, 150);
+    window.addEventListener('resize', handler);
+  },
+
+  resizeAll() {
+    setTimeout(() => Object.values(this.instances).forEach(c => c && c.resize && c.resize()), 50);
+  },
+
+  /** Redibuixa totes les gràfiques amb un nou tema (per dark/light) */
+  disposeAll() {
+    Object.values(this.instances).forEach(c => c && c.dispose && c.dispose());
+    this.instances = {};
+  },
+
+  baseOpts() {
+    const isDark = store.state.theme === 'dark';
+    return {
+      textStyle: { fontFamily: 'Inter, sans-serif', color: isDark ? '#cbd5e1' : '#475569' },
+      grid: { left: 50, right: 30, top: 30, bottom: 40, containLabel: true },
+      tooltip: {
+        backgroundColor: isDark ? '#1f2937' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e5e7eb',
+        textStyle: { color: isDark ? '#f1f5f9' : '#0f172a', fontSize: 12 }
+      }
+    };
+  }
+};
+
+/* ==========================================================================
+   TABLE FACTORY
+   --------------------------------------------------------------------------
+   Helper unificat per crear taules Tabulator amb defaults coherents:
+     · Ordenació numèrica/data correcta (sorter explícit)
+     · Cerca per múltiples camps amb funció custom (OR real)
+     · Reset segur en re-renderitzar dades
+   ========================================================================== */
+const TableFactory = {
+  /**
+   * Crea o actualitza una taula Tabulator.
+   * @param {string} elementId
+   * @param {Array}  data
+   * @param {Array}  columns
+   * @param {Object} options
+   * @returns {Tabulator}
+   */
+  buildOrUpdate(elementId, data, columns, options = {}) {
+    const existing = options._existing;
+    if (existing) {
+      // Mantenim ordenació i filtre actuals
+      const sorters = existing.getSorters();
+      existing.replaceData(data).then(() => {
+        if (sorters.length) existing.setSort(sorters);
+      });
+      return existing;
+    }
+
+    const defaults = {
+      data,
+      columns,
+      height: options.height || '450px',
+      layout: 'fitDataStretch',
+      virtualDom: true,
+      virtualDomBuffer: 200,
+      movableColumns: false,        // desactivat: causa conflictes amb columnes congelades
+      placeholder: 'Sense dades per mostrar',
+      pagination: false,
+      reactiveData: false,
+      headerSortClickElement: 'icon' // FIX: només l'icona ordena, així el text del header és clicable per altres usos
+    };
+    return new Tabulator('#' + elementId, { ...defaults, ...options });
+  },
+
+  /**
+   * Aplica cerca per múltiples camps via funció custom (OR).
+   * @param {Tabulator} table
+   * @param {string} query
+   * @param {string[]} fields
+   */
+  applyMultiSearch(table, query, fields) {
+    const q = Helpers.normalize(query);
+    if (!q) {
+      table.clearFilter(true);
+      return;
+    }
+    table.setFilter(row => {
+      return fields.some(f => Helpers.normalize(row[f]).includes(q));
+    });
+  }
+};
+
+/* ==========================================================================
+   COMPONENT — KPI Cards (Dashboard)
+   ========================================================================== */
+function renderKPIs() {
+  const data = store.getFiltered();
+  const total = data.length;
+  const pendents = data.filter(d => d.estat === 'N');
+  const rebudes  = data.filter(d => d.estat === 'S');
+  const importTotal   = data.reduce((s, d) => s + d.import_, 0);
+  const importPendent = pendents.reduce((s, d) => s + d.import_, 0);
+  const compliment    = total ? (rebudes.length / total) * 100 : 0;
+
+  const byProv = {};
+  data.forEach(d => byProv[d.proveidor] = (byProv[d.proveidor] || 0) + d.import_);
+  const topProv = Object.entries(byProv).sort((a,b) => b[1]-a[1])[0];
+
+  const byArt = {};
+  data.forEach(d => byArt[d.article] = (byArt[d.article] || 0) + d.quantitat);
+  const topArt = Object.entries(byArt).sort((a,b) => b[1]-a[1])[0];
+
+  const ambRetard = pendents.filter(d => d.diesRetard > 0);
+  const retardMig = ambRetard.length ? ambRetard.reduce((s,d) => s+d.diesRetard, 0)/ambRetard.length : 0;
+
+  const kpis = [
+    { label: 'Total comandes', value: Formatters.number(total), icon: 'package',         accent: 'accent' },
+    { label: 'Pendents',       value: Formatters.number(pendents.length), icon: 'clock-hour-4', accent: 'warning', sub: Formatters.currencyCompact(importPendent), filter: { estat: 'N' } },
+    { label: 'Rebudes',        value: Formatters.number(rebudes.length),  icon: 'circle-check', accent: 'success', filter: { estat: 'S' } },
+    { label: '% Compliment',   value: Formatters.percent(compliment),     icon: 'target',       accent: compliment > 80 ? 'success' : 'warning' },
+    { label: 'Import total',   value: Formatters.currencyCompact(importTotal),   icon: 'cash',  accent: 'accent' },
+    { label: 'Import pendent', value: Formatters.currencyCompact(importPendent), icon: 'cash-banknote', accent: 'warning' },
+    { label: 'Top proveïdor',  value: topProv ? topProv[0] : '—', icon: 'truck', accent: 'accent', small: true,
+      sub: topProv ? Formatters.currencyCompact(topProv[1]) : '', filter: topProv ? { proveidor: topProv[0] } : null },
+    { label: 'Article més demanat', value: topArt ? topArt[0] : '—', icon: 'package', accent: 'accent', small: true,
+      sub: topArt ? `${Formatters.number(topArt[1])} unitats` : '' },
+    { label: 'Retard mig (dies)', value: Formatters.number(Math.round(retardMig)), icon: 'alert-triangle', accent: retardMig > 7 ? 'danger' : 'warning',
+      sub: `${ambRetard.length} comandes amb retard` }
+  ];
+
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = kpis.map(k => {
+    const clickable = k.filter ? 'clickable' : '';
+    const filterAttr = k.filter ? `data-filter='${Formatters.escapeHtml(JSON.stringify(k.filter))}'` : '';
+    return `
+      <div class="kpi-card ${clickable}" data-accent="${k.accent}" ${filterAttr}>
+        <div class="kpi-label"><i class="ti ti-${k.icon}"></i>${Formatters.escapeHtml(k.label)}</div>
+        <div class="kpi-value ${k.small ? 'kpi-value-small' : ''}" title="${Formatters.escapeHtml(k.value)}">${Formatters.escapeHtml(k.value)}</div>
+        ${k.sub ? `<div class="kpi-sub">${Formatters.escapeHtml(k.sub)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('[data-filter]').forEach(card => {
+    card.addEventListener('click', () => {
+      try {
+        const f = JSON.parse(card.dataset.filter);
+        store.setFilters(f);
+        Toast.show('Filtre aplicat', 'info', 1500);
+      } catch (e) { console.error(e); }
+    });
+  });
+}
+
+/* ==========================================================================
+   COMPONENT — Filtres
+   ========================================================================== */
+function populateFilters() {
+  const data = store.state.raw;
+  const fillSelect = (id, values, currentValue) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const unique = [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, 'ca'));
+    const firstOpt = select.options[0].outerHTML;
+    select.innerHTML = firstOpt + unique.map(v =>
+      `<option value="${Formatters.escapeHtml(v)}">${Formatters.escapeHtml(v)}</option>`
+    ).join('');
+    // FIX: restaurar selecció explícitament per valor (no per index)
+    select.value = currentValue || '';
+  };
+  fillSelect('filterProveidor', data.map(d => d.proveidor), store.state.filters.proveidor);
+  fillSelect('filterFamilia',   data.map(d => d.familia),   store.state.filters.familia);
+  fillSelect('filterArticle',   data.map(d => d.article),   store.state.filters.article);
+
+  // Sincronitzar valor del select d'estat amb el filtre actiu
+  const estatSelect = document.getElementById('filterEstat');
+  if (estatSelect) estatSelect.value = store.state.filters.estat || '';
+
+  // Mostrar la barra només quan hi ha dades i la vista no és config
+  const isDataView = store.state.view !== 'config';
+  document.getElementById('filtersBar').style.display = (data.length && isDataView) ? 'flex' : 'none';
+}
+
+function bindFilters() {
+  document.getElementById('filterEstat').addEventListener('change', e => store.setFilters({ estat: e.target.value }));
+  document.getElementById('filterProveidor').addEventListener('change', e => store.setFilters({ proveidor: e.target.value }));
+  document.getElementById('filterFamilia').addEventListener('change', e => store.setFilters({ familia: e.target.value }));
+  document.getElementById('filterArticle').addEventListener('change', e => store.setFilters({ article: e.target.value }));
+  document.getElementById('filterDateFrom').addEventListener('change', e => store.setFilters({ dateFrom: e.target.value ? dayjs(e.target.value) : null }));
+  document.getElementById('filterDateTo').addEventListener('change',   e => store.setFilters({ dateTo:   e.target.value ? dayjs(e.target.value) : null }));
+  document.getElementById('btnClearFilters').addEventListener('click', clearAllFilters);
+}
+
+function clearAllFilters() {
+  store.setFilters({ estat:'', proveidor:'', familia:'', article:'', dateFrom:null, dateTo:null, search:'' });
+  document.getElementById('filterEstat').value = '';
+  document.getElementById('filterProveidor').value = '';
+  document.getElementById('filterFamilia').value = '';
+  document.getElementById('filterArticle').value = '';
+  document.getElementById('filterDateFrom').value = '';
+  document.getElementById('filterDateTo').value = '';
+  document.getElementById('globalSearch').value = '';
+  Toast.show('Filtres netejats', 'info', 1500);
+}
+
+function renderActiveChips() {
+  const chipsEl = document.getElementById('activeFiltersChips');
+  const f = store.state.filters;
+  const chips = [];
+  if (f.estat) chips.push({ key: 'estat', label: `Estat: ${f.estat === 'N' ? 'Pendent' : 'Rebuda'}` });
+  if (f.proveidor) chips.push({ key: 'proveidor', label: `Prov: ${f.proveidor}` });
+  if (f.familia) chips.push({ key: 'familia', label: `Fam: ${f.familia}` });
+  if (f.article) chips.push({ key: 'article', label: `Art: ${f.article}` });
+  if (f.dateFrom) chips.push({ key: 'dateFrom', label: `Des de: ${f.dateFrom.format('DD/MM/YYYY')}` });
+  if (f.dateTo) chips.push({ key: 'dateTo', label: `Fins a: ${f.dateTo.format('DD/MM/YYYY')}` });
+  if (f.search) chips.push({ key: 'search', label: `Cerca: ${f.search}` });
+
+  chipsEl.innerHTML = chips.map(c =>
+    `<span class="filter-chip" title="${Formatters.escapeHtml(c.label)}">
+       <span style="overflow:hidden; text-overflow:ellipsis;">${Formatters.escapeHtml(c.label)}</span>
+       <i class="ti ti-x" data-key="${c.key}"></i>
+     </span>`
+  ).join('');
+
+  chipsEl.querySelectorAll('i').forEach(i => {
+    i.addEventListener('click', () => {
+      const key = i.dataset.key;
+      const resetVal = (['dateFrom','dateTo'].includes(key)) ? null : '';
+      store.setFilters({ [key]: resetVal });
+      // FIX: també buidem el control visual associat
+      if (key === 'search') document.getElementById('globalSearch').value = '';
+      else if (key === 'dateFrom') document.getElementById('filterDateFrom').value = '';
+      else if (key === 'dateTo')   document.getElementById('filterDateTo').value = '';
+      else {
+        const sel = document.getElementById('filter' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (sel) sel.value = '';
+      }
+    });
+  });
+}
+
+/* ==========================================================================
+   COLUMN DEFINITIONS — amb sorters explícits (FIX d'ordenació)
+   --------------------------------------------------------------------------
+   Tabulator per defecte ordena com string. Per ordenar bé columnes numèriques
+   o de data cal especificar sorter:'number' / sorter:'date'. Aquest era el
+   bug principal de l'ordenació per "dies de retard".
+   ========================================================================== */
+const ColumnDefs = {
+  /** Columnes per la taula principal del Dashboard */
+  main(dateFormat) {
+    return [
+      { title: 'Comanda',     field: 'comanda',    width: 110, frozen: true, sorter: 'string' },
+      { title: 'Estat',       field: 'estat',      width: 110, sorter: 'string',
+        formatter: (cell) => {
+          const v = cell.getValue();
+          const row = cell.getRow().getData();
+          if (v === 'S') return '<span class="status-pill rebuda"><i class="ti ti-check"></i>Rebuda</span>';
+          if (v === 'N' && row.diesRetard > 0) return `<span class="status-pill retard"><i class="ti ti-alert-triangle"></i>${row.diesRetard}d retard</span>`;
+          if (v === 'N') return '<span class="status-pill pendent"><i class="ti ti-clock"></i>Pendent</span>';
+          return '';
+        }
+      },
+      { title: 'Article',      field: 'article',    width: 110, sorter: 'string' },
+      { title: 'Descripció',   field: 'descripcio', minWidth: 220, sorter: 'string' },
+      { title: 'Família',      field: 'familia',    width: 160, sorter: 'string' },
+      { title: 'Quantitat',    field: 'quantitat',  width: 100, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.number(c.getValue()) },
+      { title: 'Import',       field: 'import_',    width: 120, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.currency(c.getValue()) },
+      { title: 'Data',         field: 'dataISO',    width: 110,
+        sorter: 'date', sorterParams: { format: 'YYYY-MM-DD', alignEmptyValues: 'bottom' },
+        formatter: c => c.getValue() ? dayjs(c.getValue()).format(dateFormat) : '' },
+      { title: 'D.Entrega',    field: 'dEntregaISO', width: 110,
+        sorter: 'date', sorterParams: { format: 'YYYY-MM-DD', alignEmptyValues: 'bottom' },
+        formatter: c => c.getValue() ? dayjs(c.getValue()).format(dateFormat) : '' },
+      { title: 'Proveïdor',    field: 'proveidor',  minWidth: 200, sorter: 'string' },
+      { title: 'Ordre.Fab',    field: 'ordreFab',   width: 110, sorter: 'string' }
+    ];
+  },
+
+  /** Columnes per la taula de pendents */
+  pendents(dateFormat) {
+    return [
+      { title: 'Comanda', field: 'comanda', width: 110, frozen: true, sorter: 'string' },
+      { title: 'Article', field: 'article', width: 110, sorter: 'string' },
+      { title: 'Descripció', field: 'descripcio', minWidth: 240, sorter: 'string' },
+      { title: 'Proveïdor', field: 'proveidor', minWidth: 200, sorter: 'string' },
+      { title: 'Data entrega', field: 'dEntregaISO', width: 130,
+        sorter: 'date', sorterParams: { format: 'YYYY-MM-DD', alignEmptyValues: 'bottom' },
+        formatter: c => c.getValue() ? dayjs(c.getValue()).format(dateFormat) : '—' },
+      { title: 'Retard (dies)', field: 'diesRetard', width: 130, hozAlign: 'right',
+        sorter: 'number',  // FIX: ordenació numèrica
+        formatter: c => {
+          const v = c.getValue();
+          if (v > 0) return `<span style="color:#dc2626; font-weight:600">${v}</span>`;
+          return '<span style="color:var(--text-muted);">0</span>';
+        }
+      },
+      { title: 'Quantitat', field: 'quantitat', width: 100, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.number(c.getValue()) },
+      { title: 'Import', field: 'import_', width: 120, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.currency(c.getValue()) }
+    ];
+  },
+
+  /** Columnes per la taula de proveïdors agregat */
+  proveidors() {
+    return [
+      { title: 'Proveïdor', field: 'proveidor', minWidth: 280, frozen: true, sorter: 'string' },
+      { title: 'Comandes', field: 'count', width: 110, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.number(c.getValue()) },
+      { title: 'Pendents', field: 'pendents', width: 110, hozAlign: 'right', sorter: 'number' },
+      { title: 'Rebudes',  field: 'rebudes',  width: 110, hozAlign: 'right', sorter: 'number' },
+      { title: 'Amb retard', field: 'retards', width: 110, hozAlign: 'right', sorter: 'number' },
+      { title: '% retard', field: 'pctRetard', width: 110, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.percent(c.getValue()) },
+      { title: 'Quantitat', field: 'quantitat', width: 110, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.number(c.getValue()) },
+      { title: 'Import total', field: 'import_', width: 140, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.currency(c.getValue()) }
+    ];
+  },
+
+  /** Columnes per la taula d'articles agregat */
+  articles() {
+    return [
+      { title: 'Article', field: 'article', width: 120, frozen: true, sorter: 'string' },
+      { title: 'Descripció', field: 'descripcio', minWidth: 280, sorter: 'string' },
+      { title: 'Família', field: 'familia', width: 180, sorter: 'string' },
+      { title: 'Comandes', field: 'count', width: 110, hozAlign: 'right', sorter: 'number' },
+      { title: 'Quantitat total', field: 'quantitat', width: 140, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.number(c.getValue()) },
+      { title: 'Import total', field: 'import_', width: 140, hozAlign: 'right',
+        sorter: 'number', formatter: c => Formatters.currency(c.getValue()) }
+    ];
+  }
+};
+
+/* ==========================================================================
+   TABLE INSTANCES — referències úniques (cap variable global dispersa)
+   ========================================================================== */
+const Tables = {
+  main: null,
+  pendents: null,
+  prov: null,
+  art: null
+};
+
+/* ==========================================================================
+   TABLES — Dashboard, Pendents, Proveïdors, Articles
+   ========================================================================== */
+function renderMainTable() {
+  const data = store.getFiltered();
+  const columns = ColumnDefs.main(store.state.config.dateFormat);
+
+  if (Tables.main) {
+    const sorters = Tables.main.getSorters();
+    Tables.main.replaceData(data).then(() => {
+      if (sorters.length) Tables.main.setSort(sorters);
+    });
+    return;
+  }
+
+  Tables.main = TableFactory.buildOrUpdate('mainTable', data, columns, {
+    height: '500px',
+    selectable: true,
+    initialSort: [{ column: 'dataISO', dir: 'desc' }],
+    rowFormatter: (row) => {
+      const d = row.getData();
+      if (d.estat === 'N' && d.diesRetard > store.state.config.alertThreshold) {
+        row.getElement().style.background = 'rgba(220, 38, 38, 0.04)';
+      } else {
+        row.getElement().style.background = '';
+      }
+    }
+  });
+
+  // Cerca dins taula (FIX: filtre OR via funció custom)
+  const tableSearchEl = document.getElementById('tableSearch');
+  if (tableSearchEl) {
+    tableSearchEl.addEventListener('input', Helpers.debounce(e => {
+      TableFactory.applyMultiSearch(Tables.main, e.target.value,
+        ['comanda','article','descripcio','proveidor','familia']);
+    }, 200));
+  }
+
+  Tables.main.on('cellClick', (e, cell) => {
+    if (cell.getField() === 'proveidor') {
+      const val = cell.getValue();
+      if (val) {
+        store.setFilters({ proveidor: val });
+        Toast.show(`Filtrat per: ${val}`, 'info', 1800);
+      }
+    }
+  });
+
+  document.getElementById('btnTableExport').addEventListener('click', () => {
+    if (!Tables.main) return;
+    Tables.main.download('xlsx', `comandes_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`);
+    Toast.show('Exportació generada', 'success');
+  });
+}
+
+function renderPendentsTable(data) {
+  const columns = ColumnDefs.pendents(store.state.config.dateFormat);
+
+  if (Tables.pendents) {
+    const sorters = Tables.pendents.getSorters();
+    Tables.pendents.replaceData(data).then(() => {
+      if (sorters.length) Tables.pendents.setSort(sorters);
+    });
+    return;
+  }
+
+  Tables.pendents = TableFactory.buildOrUpdate('pendentsTable', data, columns, {
+    height: '420px',
+    initialSort: [{ column: 'diesRetard', dir: 'desc' }]
+  });
+
+  const search = document.getElementById('pendentsSearch');
+  if (search) {
+    search.addEventListener('input', Helpers.debounce(e => {
+      TableFactory.applyMultiSearch(Tables.pendents, e.target.value,
+        ['comanda','article','descripcio','proveidor']);
+    }, 200));
+  }
+}
+
+function renderProvTable(data) {
+  const columns = ColumnDefs.proveidors();
+
+  if (Tables.prov) {
+    const sorters = Tables.prov.getSorters();
+    Tables.prov.replaceData(data).then(() => {
+      if (sorters.length) Tables.prov.setSort(sorters);
+    });
+    return;
+  }
+
+  Tables.prov = TableFactory.buildOrUpdate('provTable', data, columns, {
+    height: '480px',
+    initialSort: [{ column: 'import_', dir: 'desc' }]
+  });
+
+  Tables.prov.on('rowClick', (e, row) => {
+    const prov = row.getData().proveidor;
+    store.setFilters({ proveidor: prov });
+    Toast.show(`Filtrat per: ${prov}`, 'info', 1500);
+  });
+
+  const search = document.getElementById('provSearch');
+  if (search) {
+    search.addEventListener('input', Helpers.debounce(e => {
+      TableFactory.applyMultiSearch(Tables.prov, e.target.value, ['proveidor']);
+    }, 200));
+  }
+}
+
+function renderArtTable(data) {
+  const columns = ColumnDefs.articles();
+
+  if (Tables.art) {
+    const sorters = Tables.art.getSorters();
+    Tables.art.replaceData(data).then(() => {
+      if (sorters.length) Tables.art.setSort(sorters);
+    });
+    return;
+  }
+
+  Tables.art = TableFactory.buildOrUpdate('artTable', data, columns, {
+    height: '480px',
+    initialSort: [{ column: 'quantitat', dir: 'desc' }]
+  });
+
+  const search = document.getElementById('artSearch');
+  if (search) {
+    search.addEventListener('input', Helpers.debounce(e => {
+      TableFactory.applyMultiSearch(Tables.art, e.target.value, ['article','descripcio','familia']);
+    }, 200));
+  }
+}
+
+/* ==========================================================================
+   CHARTS — Dashboard
+   ========================================================================== */
+function renderChartEvolucio() {
+  const data = store.getFiltered();
+  const byMonth = {};
+  data.forEach(d => {
+    if (!d.data) return;
+    const k = d.data.format('YYYY-MM');
+    if (!byMonth[k]) byMonth[k] = { count: 0, import_: 0 };
+    byMonth[k].count++;
+    byMonth[k].import_ += d.import_;
+  });
+  const months  = Object.keys(byMonth).sort();
+  const counts  = months.map(m => byMonth[m].count);
+  const imports = months.map(m => Math.round(byMonth[m].import_));
+
+  const chart = ChartManager.get('chartEvolucio');
+  if (!chart) return;
+  chart.setOption({
+    ...ChartManager.baseOpts(),
+    legend: { data: ['Comandes', 'Import €'], top: 0, textStyle: { fontSize: 11 } },
+    xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10 } },
+    yAxis: [
+      { type: 'value', name: 'Comandes', axisLabel: { fontSize: 10 } },
+      { type: 'value', name: 'Import €', position: 'right',
+        axisLabel: { fontSize: 10, formatter: v => Formatters.currencyCompact(v) } }
+    ],
+    series: [
+      { name: 'Comandes', type: 'bar', data: counts,
+        itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] } },
+      { name: 'Import €', type: 'line', yAxisIndex: 1, data: imports, smooth: true,
+        itemStyle: { color: '#16a34a' }, lineStyle: { width: 3 } }
+    ]
+  }, true);
+}
+
+function renderChartEstat() {
+  const data = store.getFiltered();
+  const pendents = data.filter(d => d.estat === 'N').length;
+  const rebudes  = data.filter(d => d.estat === 'S').length;
+  const enRetard = data.filter(d => d.estat === 'N' && d.diesRetard > 0).length;
+
+  const chart = ChartManager.get('chartEstat');
+  if (!chart) return;
+  chart.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['55%', '78%'], center: ['50%', '45%'],
+      avoidLabelOverlap: true,
+      label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+      labelLine: { length: 8, length2: 8 },
+      data: [
+        { value: rebudes, name: 'Rebudes', itemStyle: { color: '#16a34a' } },
+        { value: pendents - enRetard, name: 'Pendents', itemStyle: { color: '#f59e0b' } },
+        { value: enRetard, name: 'En retard', itemStyle: { color: '#dc2626' } }
+      ]
+    }]
+  }, true);
+}
+
+function renderChartTopProveidors() {
+  const data = store.getFiltered();
+  const map = {};
+  data.forEach(d => map[d.proveidor] = (map[d.proveidor] || 0) + d.import_);
+  const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,10).reverse();
+
+  const chart = ChartManager.get('chartTopProveidors');
+  if (!chart) return;
+  chart.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'value', axisLabel: { formatter: v => Formatters.currencyCompact(v), fontSize: 10 } },
+    yAxis: { type: 'category', data: sorted.map(x => x[0]), axisLabel: { fontSize: 10, width: 120, overflow: 'truncate' } },
+    series: [{
+      type: 'bar', data: sorted.map(x => Math.round(x[1])),
+      itemStyle: { color: '#2563eb', borderRadius: [0,4,4,0] }
+    }]
+  }, true);
+
+  // FIX: netejar handlers anteriors abans d'enllaçar-ne de nous
+  chart.off('click');
+  chart.on('click', p => store.setFilters({ proveidor: p.name }));
+}
+
+function renderChartTopFamilies() {
+  const data = store.getFiltered();
+  const map = {};
+  data.forEach(d => map[d.familia] = (map[d.familia] || 0) + d.import_);
+  const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,10);
+
+  const chart = ChartManager.get('chartTopFamilies');
+  if (!chart) return;
+  chart.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: sorted.map(x => x[0]),
+      axisLabel: { rotate: 35, fontSize: 9, overflow: 'truncate', width: 80 } },
+    yAxis: { type: 'value', axisLabel: { formatter: v => Formatters.currencyCompact(v), fontSize: 10 } },
+    series: [{
+      type: 'bar', data: sorted.map(x => Math.round(x[1])),
+      itemStyle: { color: '#7c3aed', borderRadius: [4,4,0,0] }
+    }]
+  }, true);
+
+  chart.off('click');
+  chart.on('click', p => store.setFilters({ familia: p.name }));
+}
+
+function renderChartHeatmap() {
+  const data = store.getFiltered();
+  const days = ['Dl','Dt','Dc','Dj','Dv','Ds','Dg'];
+  const weeks = {};
+  data.forEach(d => {
+    if (!d.data) return;
+    const wk = d.data.format('YYYY-[W]WW');
+    if (!weeks[wk]) weeks[wk] = new Array(7).fill(0);
+    const dayIdx = (d.data.day() + 6) % 7;
+    weeks[wk][dayIdx]++;
+  });
+  const weekKeys = Object.keys(weeks).sort().slice(-12);
+  const heatData = [];
+  let max = 0;
+  weekKeys.forEach((wk, wi) => {
+    weeks[wk].forEach((v, di) => {
+      heatData.push([wi, di, v]);
+      if (v > max) max = v;
+    });
+  });
+
+  const chart = ChartManager.get('chartHeatmap');
+  if (!chart) return;
+  chart.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, position: 'top',
+      formatter: p => `${weekKeys[p.value[0]]} · ${days[p.value[1]]}<br>${p.value[2]} comandes` },
+    grid: { left: 50, right: 20, top: 10, bottom: 50 },
+    xAxis: { type: 'category', data: weekKeys, axisLabel: { rotate: 35, fontSize: 9 } },
+    yAxis: { type: 'category', data: days, axisLabel: { fontSize: 10 } },
+    visualMap: { min: 0, max: max || 1, calculable: true, orient: 'horizontal',
+      left: 'center', bottom: 0,
+      inRange: { color: ['#dbeafe', '#3b82f6', '#1e3a8a'] }, textStyle: { fontSize: 10 } },
+    series: [{ type: 'heatmap', data: heatData, label: { show: false } }]
+  }, true);
+}
+
+/* ==========================================================================
+   VISTES SECUNDÀRIES
+   ========================================================================== */
+function renderViewPendents() {
+  const data = store.getFiltered().filter(d => d.estat === 'N');
+
+  // KPIs
+  const enRetard = data.filter(d => d.diesRetard > 0);
+  const importP  = data.reduce((s,d) => s + d.import_, 0);
+  const kpis = [
+    { label: 'Total pendents', value: Formatters.number(data.length), icon: 'clock-hour-4', accent: 'warning' },
+    { label: 'En retard',      value: Formatters.number(enRetard.length), icon: 'alert-triangle', accent: 'danger' },
+    { label: 'Import pendent', value: Formatters.currencyCompact(importP), icon: 'cash', accent: 'accent' },
+    { label: 'Dies retard mig',
+      value: enRetard.length ? Math.round(enRetard.reduce((s,d) => s+d.diesRetard,0)/enRetard.length) : 0,
+      icon: 'calendar-off', accent: 'danger' }
+  ];
+  document.getElementById('pendentsKpi').innerHTML = kpis.map(k => `
+    <div class="kpi-card" data-accent="${k.accent}">
+      <div class="kpi-label"><i class="ti ti-${k.icon}"></i>${Formatters.escapeHtml(k.label)}</div>
+      <div class="kpi-value">${Formatters.escapeHtml(String(k.value))}</div>
+    </div>`).join('');
+
+  // Gràfica
+  const byProv = {};
+  data.forEach(d => byProv[d.proveidor] = (byProv[d.proveidor] || 0) + 1);
+  const sorted = Object.entries(byProv).sort((a,b) => b[1]-a[1]).slice(0,15).reverse();
+  const chart = ChartManager.get('chartPendentsProv');
+  if (chart) {
+    chart.setOption({
+      ...ChartManager.baseOpts(),
+      tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+      xAxis: { type: 'value' },
+      yAxis: { type: 'category', data: sorted.map(x => x[0]),
+        axisLabel: { fontSize: 10, width: 140, overflow: 'truncate' } },
+      series: [{ type: 'bar', data: sorted.map(x => x[1]),
+        itemStyle: { color: '#f59e0b', borderRadius: [0,4,4,0] } }]
+    }, true);
+    chart.off('click');
+    chart.on('click', p => store.setFilters({ proveidor: p.name }));
+  }
+
+  renderPendentsTable(data);
+}
+
+function renderViewHistorics() {
+  const data = store.getFiltered();
+  const byMonth = {};
+  data.forEach(d => {
+    if (!d.data) return;
+    const k = d.data.format('YYYY-MM');
+    if (!byMonth[k]) byMonth[k] = { import_: 0, p: 0, r: 0 };
+    byMonth[k].import_ += d.import_;
+    if (d.estat === 'N') byMonth[k].p++;
+    if (d.estat === 'S') byMonth[k].r++;
+  });
+  const months = Object.keys(byMonth).sort();
+
+  const c1 = ChartManager.get('chartHistImport');
+  if (c1) c1.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: months },
+    yAxis: { type: 'value', axisLabel: { formatter: v => Formatters.currencyCompact(v) } },
+    series: [{ type: 'line', smooth: true,
+      areaStyle: { opacity: 0.15, color: '#2563eb' },
+      lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb' },
+      data: months.map(m => Math.round(byMonth[m].import_)) }]
+  }, true);
+
+  const c2 = ChartManager.get('chartHistPR');
+  if (c2) c2.setOption({
+    ...ChartManager.baseOpts(),
+    legend: { top: 0, textStyle: { fontSize: 11 } },
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'value' },
+    series: [
+      { name: 'Pendents', type: 'bar', stack: 'estat',
+        data: months.map(m => byMonth[m].p), itemStyle: { color: '#f59e0b' } },
+      { name: 'Rebudes',  type: 'bar', stack: 'estat',
+        data: months.map(m => byMonth[m].r), itemStyle: { color: '#16a34a' } }
+    ]
+  }, true);
+
+  const byYearMonth = {};
+  data.forEach(d => {
+    if (!d.data) return;
+    const y = d.data.format('YYYY');
+    const m = d.data.month();
+    if (!byYearMonth[y]) byYearMonth[y] = new Array(12).fill(0);
+    byYearMonth[y][m] += d.import_;
+  });
+  const years = Object.keys(byYearMonth).sort();
+  const colors = ['#2563eb','#16a34a','#f59e0b','#dc2626','#7c3aed','#0891b2'];
+  const c3 = ChartManager.get('chartHistAnnual');
+  if (c3) c3.setOption({
+    ...ChartManager.baseOpts(),
+    legend: { top: 0, textStyle: { fontSize: 11 } },
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: ['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'] },
+    yAxis: { type: 'value', axisLabel: { formatter: v => Formatters.currencyCompact(v), fontSize: 10 } },
+    series: years.map((y, i) => ({
+      name: y, type: 'line', smooth: true,
+      data: byYearMonth[y].map(v => Math.round(v)),
+      itemStyle: { color: colors[i % colors.length] }
+    }))
+  }, true);
+}
+
+function renderViewProveidors() {
+  const data = store.getFiltered();
+  const map = {};
+  data.forEach(d => {
+    if (!map[d.proveidor]) map[d.proveidor] = {
+      proveidor: d.proveidor, count: 0, pendents: 0, rebudes: 0,
+      import_: 0, retards: 0, quantitat: 0
+    };
+    const m = map[d.proveidor];
+    m.count++;
+    if (d.estat === 'N') m.pendents++;
+    if (d.estat === 'S') m.rebudes++;
+    if (d.diesRetard > 0) m.retards++;
+    m.import_   += d.import_;
+    m.quantitat += d.quantitat;
+  });
+  const rows = Object.values(map).map(r => ({ ...r, pctRetard: r.count ? (r.retards / r.count * 100) : 0 }));
+
+  // Gràfica ranking
+  const top = [...rows].sort((a,b) => b.import_ - a.import_).slice(0, 15).reverse();
+  const chart = ChartManager.get('chartRankProv');
+  if (chart) chart.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'value', axisLabel: { formatter: v => Formatters.currencyCompact(v) } },
+    yAxis: { type: 'category', data: top.map(r => r.proveidor),
+      axisLabel: { fontSize: 10, width: 160, overflow: 'truncate' } },
+    series: [{ type: 'bar', data: top.map(r => Math.round(r.import_)),
+      itemStyle: { color: '#0891b2', borderRadius: [0,4,4,0] } }]
+  }, true);
+
+  renderProvTable(rows);
+}
+
+function renderViewArticles() {
+  const data = store.getFiltered();
+  const map = {};
+  data.forEach(d => {
+    const key = d.article || '—';
+    if (!map[key]) map[key] = {
+      article: key, descripcio: d.descripcio, familia: d.familia,
+      count: 0, quantitat: 0, import_: 0
+    };
+    const m = map[key];
+    m.count++;
+    m.quantitat += d.quantitat;
+    m.import_   += d.import_;
+  });
+  const rows = Object.values(map);
+
+  const top = [...rows].sort((a,b) => b.quantitat - a.quantitat).slice(0, 15).reverse();
+  const chart = ChartManager.get('chartTopArt');
+  if (chart) chart.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: top.map(r => r.article),
+      axisLabel: { fontSize: 10, width: 100, overflow: 'truncate' } },
+    series: [{ type: 'bar', data: top.map(r => r.quantitat),
+      itemStyle: { color: '#16a34a', borderRadius: [0,4,4,0] } }]
+  }, true);
+
+  renderArtTable(rows);
+}
+
+function renderViewAnalytics() {
+  const data = store.getFiltered();
+  const total = data.length;
+  const enRetard = data.filter(d => d.diesRetard > store.state.config.alertThreshold);
+  const importTotal = data.reduce((s,d) => s + d.import_, 0);
+  const avgImport   = total ? importTotal / total : 0;
+
+  const kpis = [
+    { label: 'Comandes alertades', value: Formatters.number(enRetard.length), icon: 'alert-circle', accent: 'danger' },
+    { label: 'Import mig per comanda', value: Formatters.currencyCompact(avgImport), icon: 'calculator', accent: 'accent' },
+    { label: 'Proveïdors únics', value: Formatters.number(new Set(data.map(d => d.proveidor)).size), icon: 'truck', accent: 'accent' },
+    { label: 'Articles únics', value: Formatters.number(new Set(data.map(d => d.article)).size), icon: 'package', accent: 'accent' }
+  ];
+  document.getElementById('analyticsKpi').innerHTML = kpis.map(k => `
+    <div class="kpi-card" data-accent="${k.accent}">
+      <div class="kpi-label"><i class="ti ti-${k.icon}"></i>${Formatters.escapeHtml(k.label)}</div>
+      <div class="kpi-value">${Formatters.escapeHtml(String(k.value))}</div>
+    </div>`).join('');
+
+  const buckets = [
+    { label: '0–500', max: 500 }, { label: '500–1K', max: 1000 },
+    { label: '1K–5K', max: 5000 }, { label: '5K–20K', max: 20000 },
+    { label: '20K+', max: Infinity }
+  ];
+  const counts = buckets.map(() => 0);
+  data.forEach(d => {
+    const i = buckets.findIndex(b => d.import_ <= b.max);
+    if (i >= 0) counts[i]++;
+  });
+  const c1 = ChartManager.get('chartImportRange');
+  if (c1) c1.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: buckets.map(b => b.label) },
+    yAxis: { type: 'value' },
+    series: [{ type: 'bar', data: counts,
+      itemStyle: { color: '#7c3aed', borderRadius: [4,4,0,0] } }]
+  }, true);
+
+  const topRet = data.filter(d => d.diesRetard > 0)
+    .sort((a,b) => b.diesRetard - a.diesRetard).slice(0,15).reverse();
+  const c2 = ChartManager.get('chartRetards');
+  if (c2) c2.setOption({
+    ...ChartManager.baseOpts(),
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'value', name: 'Dies' },
+    yAxis: { type: 'category',
+      data: topRet.map(r => r.comanda + ' · ' + (r.proveidor || '').slice(0,20)),
+      axisLabel: { fontSize: 9, width: 180, overflow: 'truncate' } },
+    series: [{ type: 'bar', data: topRet.map(r => r.diesRetard),
+      itemStyle: { color: '#dc2626', borderRadius: [0,4,4,0] } }]
+  }, true);
+
+  const byMonth = {};
+  data.forEach(d => {
+    if (!d.data) return;
+    const k = d.data.format('YYYY-MM');
+    byMonth[k] = (byMonth[k] || 0) + d.import_;
+  });
+  const months = Object.keys(byMonth).sort();
+  const series = months.map(m => byMonth[m]);
+  const movingAvg = series.map((_, i) => {
+    if (i < 2) return null;
+    return (series[i] + series[i-1] + series[i-2]) / 3;
+  });
+
+  const c3 = ChartManager.get('chartForecast');
+  if (c3) c3.setOption({
+    ...ChartManager.baseOpts(),
+    legend: { top: 0, textStyle: { fontSize: 11 } },
+    tooltip: { ...ChartManager.baseOpts().tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: months },
+    yAxis: { type: 'value', axisLabel: { formatter: v => Formatters.currencyCompact(v) } },
+    series: [
+      { name: 'Import real', type: 'bar', data: series.map(v => Math.round(v)),
+        itemStyle: { color: '#3b82f6', borderRadius: [4,4,0,0] } },
+      { name: 'Mitjana mòbil 3m', type: 'line', smooth: true,
+        data: movingAvg.map(v => v != null ? Math.round(v) : null),
+        itemStyle: { color: '#f59e0b' }, lineStyle: { width: 3 } }
+    ]
+  }, true);
+}
+
+/* ==========================================================================
+   APP — orquestració de vistes
+   ========================================================================== */
+function renderActiveView() {
+  const view = store.state.view;
+  const data = store.state.raw;
+
+  if (view === 'dashboard') {
+    if (!data.length) {
+      document.getElementById('dashboardEmpty').style.display = 'block';
+      document.getElementById('dashboardContent').style.display = 'none';
+      return;
+    }
+    document.getElementById('dashboardEmpty').style.display = 'none';
+    document.getElementById('dashboardContent').style.display = 'block';
+    renderKPIs();
+    renderChartEvolucio();
+    renderChartEstat();
+    renderChartTopProveidors();
+    renderChartTopFamilies();
+    renderChartHeatmap();
+    renderMainTable();
+  } else if (view === 'pendents')   renderViewPendents();
+    else if (view === 'historics')  renderViewHistorics();
+    else if (view === 'proveidors') renderViewProveidors();
+    else if (view === 'articles')   renderViewArticles();
+    else if (view === 'analytics')  renderViewAnalytics();
+}
+
+function setView(view) {
+  const titles = {
+    dashboard:  ['Dashboard', 'Vista general de comandes'],
+    pendents:   ['Comandes pendents', 'Control de comandes obertes i retards'],
+    historics:  ['Històrics', 'Anàlisi temporal i evolució'],
+    proveidors: ['Proveïdors', 'Ranking i resum de proveïdors'],
+    articles:   ['Articles', 'Anàlisi per article i família'],
+    analytics:  ['Analytics', 'Mètriques avançades i forecast'],
+    config:     ['Configuració', 'Preferències de l\'aplicació']
+  };
+  store.setState({ view });
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.getElementById('viewTitle').textContent    = titles[view][0];
+  document.getElementById('viewSubtitle').textContent = titles[view][1];
+  ChartManager.resizeAll();
+}
+
+function bindNavigation() {
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => setView(el.dataset.view));
+  });
+}
+
+/* ==========================================================================
+   FILE UPLOAD
+   ========================================================================== */
+async function handleFile(file) {
+  if (!file) return;
+  const validExt = /\.(xlsx|xls)$/i.test(file.name);
+  if (!validExt) {
+    Toast.show('Format invàlid. Cal un fitxer .xlsx o .xls', 'error');
+    return;
+  }
+  Toast.show('Processant Excel...', 'info', 1500);
+  try {
+    const rows = await ExcelService.parse(file);
+    if (!rows.length) {
+      Toast.show('El fitxer no conté dades', 'warning');
+      return;
+    }
+    store.setState({ raw: rows, lastUpdate: new Date() });
+
+    // Persistència
+    const serializable = rows.map(r => ({
+      ...r,
+      data:     r.data     ? r.data.toISOString()     : null,
+      dEntrega: r.dEntrega ? r.dEntrega.toISOString() : null
+    }));
+    await StorageService.set('lastData', serializable);
+    await StorageService.set('lastUpdate', new Date().toISOString());
+    await StorageService.set('fileName', file.name);
+
+    Toast.show(`${rows.length} línies carregades correctament`, 'success');
+    closeDropzone();
+    updateLastUpdateLabel();
+  } catch (err) {
+    console.error(err);
+    Toast.show('Error processant el fitxer: ' + err.message, 'error');
+  }
+}
+
+function openDropzone()  { document.getElementById('dropzoneOverlay').classList.add('active'); }
+function closeDropzone() {
+  document.getElementById('dropzoneOverlay').classList.remove('active');
+  document.getElementById('dropzoneBox').classList.remove('drag-over');
+}
+
+/* ==========================================================================
+   DRAG & DROP — implementació robusta amb comptador per evitar flicker
+   --------------------------------------------------------------------------
+   El problema del DragEvent és que dragenter/dragleave es disparen per cada
+   element fill, fent que l'overlay parpadegi. Es resol amb un comptador.
+   ========================================================================== */
+function bindUpload() {
+  document.getElementById('btnUpload').addEventListener('click', openDropzone);
+  document.getElementById('btnUploadEmpty').addEventListener('click', openDropzone);
+  document.getElementById('btnCloseDropzone').addEventListener('click', closeDropzone);
+  document.getElementById('btnSelectFile').addEventListener('click', () => document.getElementById('fileInput').click());
+  document.getElementById('fileInput').addEventListener('change', e => {
+    handleFile(e.target.files[0]);
+    e.target.value = ''; // FIX: permet pujar el mateix fitxer dos cops seguits
+  });
+
+  // Drag & drop global amb comptador
+  let dragCounter = 0;
+  const overlay = document.getElementById('dropzoneOverlay');
+  const box     = document.getElementById('dropzoneBox');
+
+  // Cal que els fitxers siguin l'origen (no només text seleccionat)
+  const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+  window.addEventListener('dragenter', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragCounter++;
+    overlay.classList.add('active');
+  });
+  window.addEventListener('dragleave', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      // Només tanquem si l'usuari surt completament de la finestra
+      if (e.relatedTarget == null) overlay.classList.remove('active');
+    }
+  });
+  window.addEventListener('dragover', e => {
+    if (hasFiles(e)) e.preventDefault();
+  });
+  window.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragCounter = 0;
+    box.classList.remove('drag-over');
+    if (e.target.closest('#dropzoneBox')) {
+      handleFile(e.dataTransfer.files[0]);
+    } else {
+      overlay.classList.remove('active');
+    }
+  });
+
+  box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('drag-over'); });
+  box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+
+  // ESC tanca
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDropzone(); });
+}
+
+/* ==========================================================================
+   UI — última actualització / stats sidebar
+   ========================================================================== */
+function updateLastUpdateLabel() {
+  const el = document.getElementById('lastUpdate');
+  const data = store.state.raw;
+  if (!data.length) {
+    el.innerHTML = '<span class="dot"></span><span>Sense actualitzar</span>';
+    document.getElementById('sidebarStats').textContent = 'Sense dades carregades';
+    return;
+  }
+  const d = store.state.lastUpdate;
+  el.innerHTML = `<span class="dot"></span><span></span>`;
+  el.querySelector('span:last-child').textContent = `Actualitzat ${dayjs(d).format('DD/MM/YYYY HH:mm')}`;
+  document.getElementById('sidebarStats').innerHTML =
+    `<div>${Formatters.number(data.length)} línies</div>
+     <div style="margin-top:2px; opacity:.7;">${Formatters.number(new Set(data.map(r => r.proveidor)).size)} proveïdors</div>`;
+}
+
+/* ==========================================================================
+   GLOBAL SEARCH
+   ========================================================================== */
+function bindGlobalSearch() {
+  const input = document.getElementById('globalSearch');
+  input.addEventListener('input', Helpers.debounce(e => {
+    store.setFilters({ search: e.target.value.trim() });
+  }, 280));
+}
+
+/* ==========================================================================
+   THEME
+   --------------------------------------------------------------------------
+   En canviar de tema, recreem les instàncies ECharts perquè els colors
+   de fons/tooltips/text es regenerin amb el nou tema.
+   ========================================================================== */
+function bindTheme() {
+  document.getElementById('btnTheme').addEventListener('click', async () => {
+    const next = store.state.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    await StorageService.set('theme', next);
+  });
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  store.state.theme = theme; // canvi silenciós, sense disparar listeners
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.className = `ti ti-${theme === 'dark' ? 'sun' : 'moon'}`;
+  // Recreem charts per actualitzar colors interns
+  ChartManager.disposeAll();
+  renderActiveView();
+}
+
+/* ==========================================================================
+   SIDEBAR TOGGLE
+   ========================================================================== */
+function bindSidebarToggle() {
+  document.getElementById('btnCollapseSidebar').addEventListener('click', async () => {
+    const collapsed = !store.state.sidebarCollapsed;
+    store.state.sidebarCollapsed = collapsed;
+    document.getElementById('appShell').setAttribute('data-collapsed', collapsed);
+    document.getElementById('sidebar').setAttribute('data-collapsed', collapsed);
+    await StorageService.set('sidebarCollapsed', collapsed);
+    setTimeout(() => ChartManager.resizeAll(), 220);
+  });
+}
+
+/* ==========================================================================
+   EXPORT CSV
+   ========================================================================== */
+function bindExport() {
+  document.getElementById('btnExportCsv').addEventListener('click', () => {
+    const data = store.getFiltered();
+    if (!data.length) { Toast.show('No hi ha dades per exportar', 'warning'); return; }
+    const headers = ['Comanda','Article','Descripció','Família','Quantitat','Import','Data','D.Entrega','Proveïdor','Estat','Dies retard'];
+    const csvEscape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.join(';')].concat(data.map(d => [
+      csvEscape(d.comanda),
+      csvEscape(d.article),
+      csvEscape(d.descripcio),
+      csvEscape(d.familia),
+      d.quantitat,
+      d.import_,
+      d.data ? d.data.format('YYYY-MM-DD') : '',
+      d.dEntrega ? d.dEntrega.format('YYYY-MM-DD') : '',
+      csvEscape(d.proveidor),
+      d.estat,
+      d.diesRetard
+    ].join(';'))).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `comandes_${dayjs().format('YYYYMMDD_HHmm')}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    Toast.show('Exportat correctament', 'success');
+  });
+}
+
+/* ==========================================================================
+   CONFIG
+   ========================================================================== */
+function bindConfig() {
+  const dateFmt = document.getElementById('dateFormatPref');
+  const alert   = document.getElementById('alertThreshold');
+  dateFmt.value = store.state.config.dateFormat;
+  alert.value   = store.state.config.alertThreshold;
+
+  dateFmt.addEventListener('change', async () => {
+    store.state.config.dateFormat = dateFmt.value;
+    await StorageService.set('config', store.state.config);
+    // Cal forçar reconstrucció de taules perquè les columnes de data canvien
+    Tables.main = null;
+    Tables.pendents = null;
+    document.querySelector('#mainTable').innerHTML = '';
+    document.querySelector('#pendentsTable').innerHTML = '';
+    renderActiveView();
+  });
+  alert.addEventListener('change', async () => {
+    store.state.config.alertThreshold = Number(alert.value) || 0;
+    await StorageService.set('config', store.state.config);
+    renderActiveView();
+  });
+  document.getElementById('btnClearStorage').addEventListener('click', async () => {
+    if (!confirm('Vols esborrar totes les dades guardades localment?')) return;
+    await StorageService.clear();
+    // Reiniciem instàncies i estat
+    Object.keys(Tables).forEach(k => Tables[k] = null);
+    document.querySelectorAll('#mainTable, #pendentsTable, #provTable, #artTable')
+      .forEach(el => el.innerHTML = '');
+    store.setState({ raw: [], lastUpdate: null });
+    Toast.show('Dades locals esborrades', 'success');
+    updateLastUpdateLabel();
+  });
+}
+
+/* ==========================================================================
+   FULLSCREEN PER GRÀFIQUES
+   --------------------------------------------------------------------------
+   Implementació amb classe CSS i toggle real (no acumula botons).
+   ========================================================================== */
+function bindFullscreen() {
+  document.addEventListener('click', e => {
+    const trigger = e.target.closest('[data-fullscreen]');
+    if (!trigger) return;
+    const id = trigger.dataset.fullscreen;
+    const card = trigger.closest('.chart-card');
+    if (!card) return;
+    const isFs = card.classList.toggle('fullscreen');
+    trigger.className = `ti ${isFs ? 'ti-arrows-minimize' : 'ti-arrows-maximize'} chart-action`;
+    setTimeout(() => {
+      const chart = ChartManager.instances[id];
+      if (chart) chart.resize();
+    }, 220);
+  });
+
+  // ESC surt de fullscreen
+  window.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const fs = document.querySelector('.chart-card.fullscreen');
+    if (fs) {
+      fs.classList.remove('fullscreen');
+      const icon = fs.querySelector('[data-fullscreen]');
+      if (icon) icon.className = 'ti ti-arrows-maximize chart-action';
+      setTimeout(() => ChartManager.resizeAll(), 220);
+    }
+  });
+}
+
+/* ==========================================================================
+   RESTORE — recupera dades, tema, config i estat del sidebar
+   ========================================================================== */
+async function restorePersisted() {
+  try {
+    const [stored, lastUpd, cfg, theme, collapsed] = await Promise.all([
+      StorageService.get('lastData'),
+      StorageService.get('lastUpdate'),
+      StorageService.get('config'),
+      StorageService.get('theme'),
+      StorageService.get('sidebarCollapsed')
+    ]);
+    if (cfg) store.state.config = { ...store.state.config, ...cfg };
+    if (theme) applyTheme(theme);
+    if (collapsed) {
+      store.state.sidebarCollapsed = true;
+      document.getElementById('appShell').setAttribute('data-collapsed', 'true');
+      document.getElementById('sidebar').setAttribute('data-collapsed', 'true');
+    }
+    if (stored && stored.length) {
+      const rehydrated = stored.map(r => ({
+        ...r,
+        data:     r.data     ? dayjs(r.data)     : null,
+        dEntrega: r.dEntrega ? dayjs(r.dEntrega) : null
+      }));
+      // Recalculem dies de retard (la data actual ha pogut canviar)
+      rehydrated.forEach(r => {
+        r.diesRetard = (r.estat === 'N') ? DateUtils.daysOverdue(r.dEntrega) : 0;
+      });
+      store.setState({ raw: rehydrated, lastUpdate: lastUpd ? new Date(lastUpd) : new Date() });
+      Toast.show('Dades anteriors restaurades', 'info', 1800);
+    }
+    updateLastUpdateLabel();
+  } catch (e) {
+    console.warn('No s\'han pogut restaurar les dades:', e);
+  }
+}
+
+/* ==========================================================================
+   BOOTSTRAP
+   ========================================================================== */
+document.addEventListener('DOMContentLoaded', async () => {
+  bindNavigation();
+  bindUpload();
+  bindGlobalSearch();
+  bindTheme();
+  bindSidebarToggle();
+  bindExport();
+  bindConfig();
+  bindFilters();
+  bindFullscreen();
+
+  // Subscriure repintat a canvis d'estat
+  store.subscribe(() => {
+    populateFilters();
+    renderActiveView();
+    renderActiveChips();
+  });
+
+  await restorePersisted();
+  populateFilters();
+  renderActiveView();
+});
+</script>
+
+<script>
+/* === DEMO AUTOLOAD · datos ficticios (Proveedor A/B/C · Artículo 1/2/3) === */
+(function(){
+  if (window.__demoAutoload) return; window.__demoAutoload = true;
+  function badge(){
+    var b=document.createElement('div');
+    b.textContent='\u25CF Datos de ejemplo (ficticios)';
+    b.style.cssText='position:fixed;z-index:99999;bottom:14px;right:14px;'
+      +'font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;background:#16233B;'
+      +'padding:8px 13px;border-radius:100px;box-shadow:0 6px 20px -6px rgba(0,0,0,.5);opacity:.94;';
+    document.body.appendChild(b);
+  }
+  async function toFile(url,name,type){
+    var r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('fetch');
+    var b=await r.blob(); return new File([b],name,{type:type||b.type||'application/octet-stream'});
+  }
+  function feed(id,file){
+    var inp=document.getElementById(id); if(!inp) return false;
+    var dt=new DataTransfer(); dt.items.add(file);
+    inp.files=dt.files; inp.dispatchEvent(new Event('change',{bubbles:true})); return true;
+  }
+  async function run(){ try{ await DEMO(); badge(); }catch(e){ /* file:// u offline: carga manual disponible */ } }
+  function boot(){ setTimeout(run, 500); }
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  async function DEMO(){ feed('fileInput', await toFile('./comandes_exemple.xlsx','comandes_exemple.xlsx')); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Martí Fernández Garrigós — Portafolio</title>
+<meta name="description" content="Herramientas de análisis y automatización que leen Excel y PDF y los convierten en dashboards. Perfil híbrido negocio + tecnología." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#ECEEF1; --grid:#E2E5EA; --ink:#16233B; --slate:#4A5468; --slate-2:#6B7486;
+    --card:#FFFFFF; --hair:#D9DDE4; --brass:#B27B2C; --brass-ink:#8A5E1C;
+    --shadow:0 1px 2px rgba(22,35,59,.05), 0 12px 30px -18px rgba(22,35,59,.28);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; font-family:"IBM Plex Sans",system-ui,sans-serif; color:var(--ink);
+    background-color:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:30px 30px; background-position:center top; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px;}
+
+  header.nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);
+    background:rgba(236,238,241,.82);border-bottom:1px solid var(--hair);}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px;}
+  .brand{font-family:"Space Grotesk";font-weight:600;letter-spacing:-.01em;font-size:1rem;white-space:nowrap;}
+  .brand span{color:var(--brass-ink);}
+  .nav-links{display:flex;gap:20px;align-items:center;}
+  .nav-links a{font-family:"IBM Plex Mono";font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--slate);text-decoration:none;transition:color .15s;}
+  .nav-links a:hover{color:var(--brass-ink);}
+  @media(max-width:640px){.nav-links a.hide-sm{display:none;}}
+
+  .lang{display:flex;gap:2px;border:1px solid var(--hair);border-radius:100px;padding:2px;background:rgba(255,255,255,.6);}
+  .lang-btn{font-family:"IBM Plex Mono";font-size:.72rem;letter-spacing:.05em;border:0;background:transparent;
+    color:var(--slate-2);padding:4px 10px;border-radius:100px;cursor:pointer;text-transform:uppercase;transition:.15s;}
+  .lang-btn:hover{color:var(--brass-ink);}
+  .lang-btn.on{background:var(--ink);color:#fff;}
+
+  .hero{padding:76px 0 40px;}
+  .eyebrow{font-family:"IBM Plex Mono";font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--brass-ink);margin:0 0 18px;}
+  h1{font-family:"Space Grotesk";font-weight:600;letter-spacing:-.02em;line-height:1.04;font-size:clamp(2.3rem,6.2vw,4rem);margin:0 0 20px;max-width:15ch;}
+  h1 .arrow{color:var(--brass);font-weight:500;}
+  .lede{font-size:1.08rem;color:var(--slate);max-width:56ch;margin:0 0 30px;}
+  .facts{display:flex;flex-wrap:wrap;gap:10px 26px;font-family:"IBM Plex Mono";font-size:.8rem;color:var(--slate-2);border-top:1px solid var(--hair);padding-top:20px;max-width:640px;}
+  .facts b{color:var(--ink);font-weight:500;}
+
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:64px 0 26px;border-bottom:1px solid var(--ink);padding-bottom:12px;}
+  .sec-head h2{font-family:"Space Grotesk";font-weight:600;font-size:1.35rem;margin:0;letter-spacing:-.01em;}
+  .sec-head .count{font-family:"IBM Plex Mono";font-size:.8rem;color:var(--slate-2);}
+
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;}
+  @media(max-width:720px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--hair);border-radius:12px;padding:24px 24px 22px;box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s ease, box-shadow .18s ease, border-color .18s;}
+  .card:hover{transform:translateY(-3px);border-color:#C7B78F;box-shadow:0 2px 4px rgba(22,35,59,.06), 0 22px 44px -22px rgba(22,35,59,.4);}
+  .io{display:flex;align-items:center;gap:8px;font-family:"IBM Plex Mono";font-size:.72rem;letter-spacing:.06em;color:var(--slate-2);margin-bottom:16px;}
+  .chip{border:1px solid var(--hair);border-radius:5px;padding:2px 8px;background:#F6F3EC;color:var(--brass-ink);}
+  .card h3{font-family:"Space Grotesk";font-weight:600;font-size:1.22rem;margin:0 0 8px;letter-spacing:-.01em;}
+  .card p{font-size:.95rem;color:var(--slate);margin:0 0 18px;flex:1;}
+  .stack{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;}
+  .tag{font-family:"IBM Plex Mono";font-size:.7rem;color:var(--slate);border:1px solid var(--hair);border-radius:100px;padding:3px 9px;}
+  .open{align-self:flex-start;font-family:"IBM Plex Mono";font-size:.8rem;letter-spacing:.03em;text-decoration:none;color:#fff;background:var(--ink);padding:9px 16px;border-radius:7px;transition:background .15s, transform .15s;}
+  .open:hover{background:var(--brass-ink);}
+  .open .a{transition:transform .15s;display:inline-block;}
+  .open:hover .a{transform:translateX(3px);}
+
+  .about-wrap{margin:72px 0 20px;}
+  .about{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;}
+  @media(max-width:720px){.about{grid-template-columns:1fr;gap:24px;}}
+  .about p{color:var(--slate);margin:0 0 14px;font-size:1rem;}
+  .about .lead{color:var(--ink);font-size:1.05rem;}
+  .skills{font-family:"IBM Plex Mono";font-size:.82rem;color:var(--slate);line-height:2.1;}
+  .skills .k{color:var(--brass-ink);}
+
+  footer{margin-top:70px;border-top:1px solid var(--ink);padding:34px 0 60px;scroll-margin-top:72px;}
+  .foot-inner{display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px;align-items:center;}
+  .foot-links{display:flex;flex-wrap:wrap;gap:20px;font-family:"IBM Plex Mono";font-size:.82rem;}
+  .foot-links a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--brass);padding-bottom:1px;}
+  .foot-links a:hover{color:var(--brass-ink);}
+  .foot-note{font-family:"IBM Plex Mono";font-size:.74rem;color:var(--slate-2);}
+
+  a:focus-visible,.open:focus-visible,.lang-btn:focus-visible{outline:2px solid var(--brass);outline-offset:3px;border-radius:4px;}
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease, transform .6s ease;}
+  .reveal.in{opacity:1;transform:none;}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none;}.card,.open,.open .a{transition:none;}html{scroll-behavior:auto;}}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="brand" data-es="Martí Fernández <span>·</span> Portafolio" data-en="Martí Fernández <span>·</span> Portfolio">Martí Fernández <span>·</span> Portafolio</div>
+    <nav class="nav-links">
+      <a href="#proyectos" data-es="Proyectos" data-en="Projects">Proyectos</a>
+      <a class="hide-sm" href="https://www.linkedin.com/in/martí-fernandez-garrigos-1b9934265" target="_blank" rel="noopener">LinkedIn</a>
+      <a class="hide-sm" href="./CV_Marti_Fernandez.pdf">CV</a>
+      <a href="#contacto" data-es="Contacto" data-en="Contact">Contacto</a>
+      <div class="lang" role="group" aria-label="Idioma / Language">
+        <button class="lang-btn on" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow reveal" data-es="Negocio + Tecnología · Finanzas · Compras" data-en="Business + Technology · Finance · Procurement">Negocio + Tecnología · Finanzas · Compras</p>
+    <h1 class="reveal" data-es="De la hoja de cálculo <span class='arrow'>&rarr;</span> a la decisión." data-en="From spreadsheet <span class='arrow'>&rarr;</span> to decision.">De la hoja de cálculo <span class="arrow">&rarr;</span> a la decisión.</h1>
+    <p class="lede reveal" data-es="Construyo herramientas internas que leen Excel y PDF y los convierten en dashboards y controles automáticos. Graduado en Contabilidad y Finanzas y estudiante de Ingeniería Informática, aplicando análisis de datos y automatización a procesos industriales reales." data-en="I build internal tools that read Excel and PDF and turn them into dashboards and automatic controls. Accounting &amp; Finance graduate and Computer Engineering student, applying data analysis and automation to real industrial processes.">Construyo herramientas internas que leen Excel y PDF y los convierten en dashboards y controles automáticos. Graduado en Contabilidad y Finanzas y estudiante de Ingeniería Informática, aplicando análisis de datos y automatización a procesos industriales reales.</p>
+    <div class="facts reveal">
+      <span data-es="<b>4</b> herramientas en vivo" data-en="<b>4</b> live tools"><b>4</b> herramientas en vivo</span>
+      <span data-es="Entrada <b>Excel / PDF</b>" data-en="Input <b>Excel / PDF</b>">Entrada <b>Excel / PDF</b></span>
+      <span data-es="Salida <b>BI &amp; alertas</b>" data-en="Output <b>BI &amp; alerts</b>">Salida <b>BI &amp; alertas</b></span>
+      <span data-es="Sin licencias de BI" data-en="No BI licences">Sin licencias de BI</span>
+    </div>
+  </div>
+</section>
+
+<section id="proyectos">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 data-es="Herramientas" data-en="Tools">Herramientas</h2>
+      <span class="count" data-es="04 — abren con datos de ejemplo" data-en="04 — open with sample data">04 — abren con datos de ejemplo</span>
+    </div>
+
+    <div class="grid">
+
+      <article class="card reveal">
+        <div class="io"><span class="chip">XLSX</span> <span class="to">&rarr;</span> <span data-es="Dashboard BI" data-en="BI dashboard">Dashboard BI</span></div>
+        <h3>StockFlow</h3>
+        <p data-es="Analiza movimientos de inventario a partir de un Excel: entradas y salidas, top de artículos, tendencias temporales, rotación, balance compras-ventas y mapas de calor de actividad." data-en="Analyses inventory movements from an Excel file: inflows and outflows, top items, time trends, turnover, purchase-sales balance and activity heatmaps.">Analiza movimientos de inventario a partir de un Excel: entradas y salidas, top de artículos, tendencias temporales, rotación, balance compras-ventas y mapas de calor de actividad.</p>
+        <div class="stack"><span class="tag">JavaScript</span><span class="tag">SheetJS</span><span class="tag">ECharts</span></div>
+        <a class="open" href="./stockflow.html" data-es="Abrir demo <span class='a'>&rarr;</span>" data-en="Open demo <span class='a'>&rarr;</span>">Abrir demo <span class="a">&rarr;</span></a>
+      </article>
+
+      <article class="card reveal">
+        <div class="io"><span class="chip">XLSX</span> <span class="to">&rarr;</span> <span data-es="Dashboard BI" data-en="BI dashboard">Dashboard BI</span></div>
+        <h3 data-es="Análisis de precios" data-en="Price analysis">Análisis de precios</h3>
+        <p data-es="Evolución y comparativa de precios de compra por material, con variación interanual y trimestral, ranking por periodo, mapa de calor por trimestre y alertas de volatilidad." data-en="Evolution and comparison of purchase prices by material, with year-on-year and quarterly variation, ranking by period, quarterly heatmap and volatility alerts.">Evolución y comparativa de precios de compra por material, con variación interanual y trimestral, ranking por periodo, mapa de calor por trimestre y alertas de volatilidad.</p>
+        <div class="stack"><span class="tag">JavaScript</span><span class="tag">SheetJS</span><span class="tag">Chart.js</span></div>
+        <a class="open" href="./DASHBOARD_ANALISIS_PREUS.html" data-es="Abrir demo <span class='a'>&rarr;</span>" data-en="Open demo <span class='a'>&rarr;</span>">Abrir demo <span class="a">&rarr;</span></a>
+      </article>
+
+      <article class="card reveal">
+        <div class="io"><span class="chip">XLSX</span> <span class="to">&rarr;</span> <span data-es="Panel de gestión" data-en="Management panel">Panel de gestión</span></div>
+        <h3 data-es="BI de proveedores y pedidos" data-en="Suppliers &amp; orders BI">BI de proveedores y pedidos</h3>
+        <p data-es="Panel tipo aplicación para seguir pedidos y proveedores: vista general de pedidos, pendientes, históricos y filtros por proveedor y artículo." data-en="App-style panel to track orders and suppliers: orders overview, pending, history and filters by supplier and item.">Panel tipo aplicación para seguir pedidos y proveedores: vista general de pedidos, pendientes, históricos y filtros por proveedor y artículo.</p>
+        <div class="stack"><span class="tag">JavaScript</span><span class="tag">SheetJS</span><span class="tag">ECharts</span></div>
+        <a class="open" href="./Dashboard_Proveidors.html" data-es="Abrir demo <span class='a'>&rarr;</span>" data-en="Open demo <span class='a'>&rarr;</span>">Abrir demo <span class="a">&rarr;</span></a>
+      </article>
+
+      <article class="card reveal">
+        <div class="io"><span class="chip">PDF</span> <span class="to">&rarr;</span> <span data-es="Control de sobrecostes" data-en="Overcharge control">Control de sobrecostes</span></div>
+        <h3 data-es="Comparador de precios de facturas" data-en="Invoice price comparator">Comparador de precios de facturas</h3>
+        <p data-es="Lee facturas de proveedor en PDF, extrae los precios y los compara con una base de datos de referencia, marcando artículos sin coincidencia, desviaciones altas y el sobrecoste total." data-en="Reads supplier invoices in PDF, extracts prices and compares them against a reference database, flagging unmatched items, high deviations and total overcharge.">Lee facturas de proveedor en PDF, extrae los precios y los compara con una base de datos de referencia, marcando artículos sin coincidencia, desviaciones altas y el sobrecoste total.</p>
+        <div class="stack"><span class="tag">pdf.js</span><span class="tag">SheetJS</span><span class="tag">JavaScript</span></div>
+        <a class="open" href="./Comparador_de_preu.html" data-es="Abrir demo <span class='a'>&rarr;</span>" data-en="Open demo <span class='a'>&rarr;</span>">Abrir demo <span class="a">&rarr;</span></a>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section class="about-wrap">
+  <div class="wrap about">
+    <div>
+      <div class="sec-head" style="margin-top:0"><h2 data-es="Enfoque" data-en="Approach">Enfoque</h2></div>
+      <p class="lead" data-es="Trabajo en el punto donde se encuentran las finanzas, las compras y la tecnología." data-en="I work where finance, procurement and technology meet.">Trabajo en el punto donde se encuentran las finanzas, las compras y la tecnología.</p>
+      <p data-es="En mi día a día como técnico de compras detecto tareas manuales, cuellos de botella y datos dispersos, y construyo herramientas que los resuelven. Cada demo de esta página nació de un problema real de un entorno industrial: controlar stock, vigilar precios, seguir pedidos o detectar sobrecostes en facturas." data-en="In my day-to-day as a purchasing technician I spot manual tasks, bottlenecks and scattered data, and build tools that solve them. Every demo on this page came from a real problem in an industrial environment: controlling stock, watching prices, tracking orders or detecting overcharges in invoices.">En mi día a día como técnico de compras detecto tareas manuales, cuellos de botella y datos dispersos, y construyo herramientas que los resuelven. Cada demo de esta página nació de un problema real de un entorno industrial: controlar stock, vigilar precios, seguir pedidos o detectar sobrecostes en facturas.</p>
+      <p data-es="Todas funcionan en el navegador, sin instalar nada: subes tu propio Excel o PDF y obtienes el análisis al momento." data-en="They all run in the browser, with nothing to install: upload your own Excel or PDF and get the analysis instantly.">Todas funcionan en el navegador, sin instalar nada: subes tu propio Excel o PDF y obtienes el análisis al momento.</p>
+    </div>
+    <div>
+      <div class="sec-head" style="margin-top:0"><h2>Stack</h2></div>
+      <div class="skills">
+        <div data-es="<span class='k'>Datos ·</span> Excel avanzado, Power Query, Power Pivot, VBA" data-en="<span class='k'>Data ·</span> Advanced Excel, Power Query, Power Pivot, VBA"><span class="k">Datos ·</span> Excel avanzado, Power Query, Power Pivot, VBA</div>
+        <div data-es="<span class='k'>Web ·</span> JavaScript, HTML, SheetJS, pdf.js" data-en="<span class='k'>Web ·</span> JavaScript, HTML, SheetJS, pdf.js"><span class="k">Web ·</span> JavaScript, HTML, SheetJS, pdf.js</div>
+        <div data-es="<span class='k'>Visualización ·</span> ECharts, Chart.js" data-en="<span class='k'>Visualization ·</span> ECharts, Chart.js"><span class="k">Visualización ·</span> ECharts, Chart.js</div>
+        <div data-es="<span class='k'>Negocio ·</span> ERP, análisis de costes, KPIs" data-en="<span class='k'>Business ·</span> ERP, cost analysis, KPIs"><span class="k">Negocio ·</span> ERP, análisis de costes, KPIs</div>
+        <div data-es="<span class='k'>IA ·</span> modelos de lenguaje aplicados al negocio" data-en="<span class='k'>AI ·</span> language models applied to business"><span class="k">IA ·</span> modelos de lenguaje aplicados al negocio</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer id="contacto">
+  <div class="wrap foot-inner">
+    <div class="foot-links">
+      <a href="https://www.linkedin.com/in/martí-fernandez-garrigos-1b9934265" target="_blank" rel="noopener">LinkedIn</a>
+      <a href="./CV_Marti_Fernandez.pdf" data-es="Descargar CV" data-en="Download CV">Descargar CV</a>
+      <a href="mailto:[correo]" data-es="[correo]" data-en="[email]">[correo]</a>
+    </div>
+    <div class="foot-note">© 2026 Martí Fernández Garrigós</div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var nodes = document.querySelectorAll('[data-es]');
+    var btns = document.querySelectorAll('.lang-btn');
+    function setLang(l){
+      document.documentElement.lang = l;
+      nodes.forEach(function(n){ var v=n.getAttribute('data-'+l); if(v!=null) n.innerHTML=v; });
+      btns.forEach(function(b){ b.classList.toggle('on', b.dataset.lang===l); });
+      try{ localStorage.setItem('lang', l); }catch(e){}
+    }
+    var init='es';
+    try{ var s=localStorage.getItem('lang'); if(s==='es'||s==='en') init=s;
+         else if((navigator.language||'').slice(0,2).toLowerCase()==='en') init='en'; }
+    catch(e){ if((navigator.language||'').slice(0,2).toLowerCase()==='en') init='en'; }
+    btns.forEach(function(b){ b.addEventListener('click', function(){ setLang(b.dataset.lang); }); });
+    setLang(init);
+  })();
+
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  },{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(function(el,i){ el.style.transitionDelay=(i%4*60)+'ms'; io.observe(el); });
+</script>
+</body>
+</html>

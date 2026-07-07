@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Anàlisis de Preus</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0b0e15; --surface: #111520; --surface2: #181d2a; --surface3: #1f2538;
+  --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.13);
+  --text: #e2e6f0; --text2: #9aa3bc; --text3: #5c6480;
+  --accent: #5b8def; --accent2: #9b72f5;
+  --green: #34d399; --red: #f87171; --amber: #fbbf24;
+  --polida: #5b8def; --decapada: #fbbf24; --galva: #34d399;
+  --font: 'Plus Jakarta Sans', sans-serif; --mono: 'JetBrains Mono', monospace;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+body.light {
+  --bg: #f4f6fb; --surface: #ffffff; --surface2: #f7f9fd; --surface3: #eef1f7;
+  --border: rgba(15,23,42,0.06); --border2: rgba(15,23,42,0.12);
+  --text: #0f172a; --text2: #475569; --text3: #7c8aa6;
+  --accent: #4670e0; --accent2: #8a5cf0;
+  --green: #059669; --red: #dc2626; --amber: #d97706;
+  --shadow: 0 4px 24px rgba(15,23,42,0.08);
+}
+body.light .b-polida { background: rgba(70,112,224,0.10); color: #2849a3; }
+body.light .b-decapada { background: rgba(217,119,6,0.12); color: #92520a; }
+body.light .b-galva { background: rgba(5,150,105,0.10); color: #045f43; }
+body.light .apill.aup { background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.25); color: #b91c1c; }
+body.light .apill.adn { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #047857; }
+
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+body::before { content: ''; position: fixed; inset: 0; z-index: 0; background-image: radial-gradient(circle, rgba(91,141,239,0.07) 1px, transparent 1px); background-size: 28px 28px; pointer-events: none; }
+body.light::before { background-image: radial-gradient(circle, rgba(70,112,224,0.10) 1px, transparent 1px); }
+
+body, .topbar, .filterbar, .card, .kpi, .meta-chip, .nav-pill, .fchip, .rchip,
+.upload-card, .badge, .apill, thead th, tbody tr, .vbar-bg, .icon-btn,
+.reload-btn, .btn-sm, .art-select, .drop-zone, .hm-cell, input, select {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+#upload-screen { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+.upload-card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--r-xl); padding: 52px 56px; max-width: 480px; width: 90%; text-align: center; position: relative; overflow: hidden; box-shadow: var(--shadow); }
+.upload-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.upload-logo { font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text2); margin-bottom: 32px; }
+.upload-icon { width: 72px; height: 72px; background: rgba(91,141,239,0.1); border: 1px solid rgba(91,141,239,0.25); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 28px; }
+.upload-title { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; margin-bottom: 10px; }
+.upload-sub { color: var(--text2); font-size: 13px; line-height: 1.6; margin-bottom: 32px; }
+.upload-sub strong { color: var(--text); font-weight: 600; }
+.drop-zone { border: 2px dashed var(--border2); border-radius: var(--r-lg); padding: 32px 24px; cursor: pointer; transition: all 0.2s; position: relative; }
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(91,141,239,0.05); }
+.drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.drop-label { font-size: 13px; color: var(--text2); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.drop-label span { color: var(--accent); font-weight: 600; }
+.drop-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
+.upload-specs { margin-top: 20px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.spec-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--text2); font-family: var(--mono); }
+#upload-error { margin-top: 14px; font-size: 12px; color: var(--red); display: none; }
+.loading-bar { height: 3px; background: var(--surface2); border-radius: 2px; margin-top: 20px; overflow: hidden; display: none; }
+.loading-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0; border-radius: 2px; animation: loadAnim 0.8s ease forwards; }
+@keyframes loadAnim { to { width: 100%; } }
+
+#app { display: none; position: relative; z-index: 1; min-height: 100vh; }
+
+.topbar { height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; position: sticky; top: 0; z-index: 50; }
+.topbar-brand { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+.topbar-brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.topbar-nav { display: flex; gap: 2px; flex: 1; justify-content: center; }
+.nav-pill { padding: 6px 16px; border-radius: 20px; font-size: 12.5px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: var(--text2); }
+.nav-pill:hover { color: var(--text); background: var(--surface2); }
+.nav-pill.active { background: rgba(91,141,239,0.15); color: var(--accent); }
+body.light .nav-pill.active { background: rgba(70,112,224,0.10); }
+.nav-pill .kbd { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid var(--border2); border-radius: 3px; font-size: 9px; opacity: 0.5; font-family: var(--mono); }
+.topbar-meta { display: flex; gap: 8px; align-items: center; }
+.meta-chip { padding: 4px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); font-size: 11px; color: var(--text2); font-family: var(--mono); white-space: nowrap; }
+.meta-chip b { color: var(--text); font-weight: 500; }
+.icon-btn { width: 34px; height: 34px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.icon-btn:hover { background: var(--surface3); }
+.reload-btn { padding: 5px 12px; border-radius: 6px; background: transparent; border: 1px solid var(--border2); color: var(--text2); font-size: 11px; cursor: pointer; font-family: var(--font); }
+.reload-btn:hover { background: var(--surface2); color: var(--text); }
+
+.filterbar { padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filter-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px; }
+.fchip { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border2); font-size: 12px; cursor: pointer; background: transparent; color: var(--text2); font-family: var(--font); }
+.fchip:hover { color: var(--text); }
+.fchip[data-active="true"][data-type="all"] { background: rgba(255,255,255,0.06); border-color: var(--border2); color: var(--text); }
+.fchip[data-active="true"][data-type="Polida"] { background: rgba(91,141,239,0.12); border-color: rgba(91,141,239,0.4); color: #7aadff; }
+.fchip[data-active="true"][data-type="Decapada"] { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.4); color: #fcd56a; }
+.fchip[data-active="true"][data-type="Galva"] { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.4); color: #6ee7bb; }
+body.light .fchip[data-active="true"][data-type="all"] { background: rgba(15,23,42,0.04); }
+body.light .fchip[data-active="true"][data-type="Polida"] { background: rgba(70,112,224,0.10); border-color: rgba(70,112,224,0.4); color: #2849a3; }
+body.light .fchip[data-active="true"][data-type="Decapada"] { background: rgba(217,119,6,0.10); border-color: rgba(217,119,6,0.4); color: #92520a; }
+body.light .fchip[data-active="true"][data-type="Galva"] { background: rgba(5,150,105,0.10); border-color: rgba(5,150,105,0.4); color: #045f43; }
+.filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.rchip { padding: 3px 9px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text3); font-size: 10.5px; cursor: pointer; font-family: var(--font); }
+.rchip:hover { color: var(--text2); border-color: var(--border2); }
+.rchip[data-active="true"] { background: rgba(91,141,239,0.12); border-color: rgba(91,141,239,0.4); color: var(--accent); }
+body.light .rchip[data-active="true"] { background: rgba(70,112,224,0.10); border-color: rgba(70,112,224,0.35); }
+
+.search-wrap { position: relative; margin-left: auto; }
+.search-input { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: var(--r-md); padding: 5px 10px 5px 28px; font-family: var(--font); font-size: 11.5px; width: 200px; outline: none; }
+.search-input::placeholder { color: var(--text3); }
+.search-input:focus { border-color: var(--accent); }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text3); pointer-events: none; }
+
+.content { padding: 24px; max-width: 1600px; margin: 0 auto; }
+.page { display: none; }
+.page.active { display: block; animation: pgIn 0.18s ease; }
+@keyframes pgIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+
+.sh { display: flex; align-items: baseline; gap: 14px; margin-bottom: 22px; padding-left: 2px; }
+.sh-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+.sh-sub { font-size: 12px; color: var(--text3); }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 22px 24px 20px; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s; }
+.kpi:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: var(--shadow); }
+.kpi::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--kpi-color, var(--accent)); opacity: 0.85; }
+.kpi-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; }
+.kpi-val { font-size: 28px; font-weight: 300; letter-spacing: -1.2px; color: var(--text); font-family: var(--mono); line-height: 1.1; }
+.kpi-val .unit { font-size: 13px; color: var(--text2); letter-spacing: 0; font-weight: 400; margin-left: 2px; }
+.kpi-delta { margin-top: 8px; font-size: 12px; display: flex; align-items: center; gap: 5px; color: var(--text2); }
+.up { color: var(--red); } .dn { color: var(--green); } .nt { color: var(--text3); }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 22px; transition: border-color 0.2s; }
+.card:hover { border-color: var(--border2); }
+.card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text2); margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 14px; }
+.grid-12 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.mb { margin-bottom: 14px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th { padding: 9px 13px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text2); font-weight: 600; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; text-align: left; user-select: none; }
+thead th[data-sortable="true"] { cursor: pointer; }
+thead th[data-sortable="true"]:hover { color: var(--text); }
+thead th .sort-arrow { display: inline-block; margin-left: 4px; opacity: 0.4; font-size: 9px; }
+thead th.sorted .sort-arrow { opacity: 1; color: var(--accent); }
+th.r { text-align: right; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr.clickable { cursor: pointer; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+td { padding: 8px 13px; font-size: 12px; color: var(--text2); white-space: nowrap; }
+td.r { text-align: right; font-family: var(--mono); font-size: 11.5px; }
+td.primary { color: var(--text); font-weight: 500; }
+td.code { color: var(--text3); font-family: var(--mono); font-size: 11px; }
+.desc-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.b-polida { background: rgba(91,141,239,0.12); color: #7aadff; }
+.b-decapada { background: rgba(251,191,36,0.12); color: #fcd56a; }
+.b-galva { background: rgba(52,211,153,0.12); color: #6ee7bb; }
+.chg-up { color: var(--red); font-family: var(--mono); }
+.chg-dn { color: var(--green); font-family: var(--mono); }
+.chg-nt { color: var(--text3); font-family: var(--mono); }
+.spark svg { display: block; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+
+.alert-strip { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; min-height: 28px; }
+.apill { padding: 5px 12px; border-radius: 20px; font-size: 11.5px; border: 1px solid; display: flex; align-items: center; gap: 6px; cursor: pointer; animation: apop 0.25s ease both; transition: transform 0.15s; }
+.apill:hover { transform: scale(1.05); }
+@keyframes apop { from { opacity:0; transform:scale(0.85); } to { opacity:1; transform:scale(1); } }
+.apill.aup { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.3); color: #f99; }
+.apill.adn { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.3); color: #6ee7bb; }
+.adot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.ano-alerts { color: var(--text3); font-size: 12px; padding: 4px 0; }
+
+.vbar-row { margin-bottom: 9px; cursor: pointer; }
+.vbar-row:hover .vbar-bg { background: var(--border2); }
+.vbar-head { display: flex; justify-content: space-between; font-size: 10.5px; margin-bottom: 3px; gap: 8px; align-items: baseline; }
+.vbar-code { color: var(--text2); font-family: var(--mono); }
+.vbar-desc { color: var(--text3); font-size: 9.5px; margin-left: 4px; }
+.vbar-bg { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; transition: background 0.2s; }
+.vbar-fill { height: 100%; border-radius: 2px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+
+#heatmap-scroll { overflow-x: auto; }
+.hm-cell { height: 22px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-family: var(--mono); font-weight: 500; color: rgba(255,255,255,0.92); cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,0.18); transition: transform 0.1s, box-shadow 0.1s; }
+.hm-cell:hover { transform: scale(1.08); z-index: 2; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+body.light .hm-cell { color: rgba(15,23,42,0.82); text-shadow: 0 1px 1px rgba(255,255,255,0.4); }
+body.light .hm-cell:hover { box-shadow: 0 2px 8px rgba(15,23,42,0.15); }
+.hm-header { font-size: 9px; color: var(--text3); padding: 2px 3px; display: flex; align-items: flex-end; justify-content: center; }
+.hm-label { font-size: 10px; display: flex; align-items: center; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; gap: 4px; cursor: pointer; }
+.hm-label:hover .hm-label-desc { color: var(--text); }
+
+.art-select-wrap { display: flex; gap: 10px; margin-bottom: 16px; align-items: flex-start; flex-wrap: wrap; }
+.art-select { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: var(--r-md); padding: 6px 8px; font-family: var(--mono); font-size: 11px; cursor: pointer; outline: none; min-width: 420px; max-width: 560px; }
+.art-select:focus { border-color: var(--accent); }
+.btn-sm { padding: 6px 13px; border-radius: var(--r-sm); background: transparent; border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: 11.5px; cursor: pointer; white-space: nowrap; }
+.btn-sm:hover { background: var(--surface2); color: var(--text); }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+body.light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+body.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.snackbar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface3); border: 1px solid var(--border2); border-radius: var(--r-md); padding: 10px 16px; font-size: 12.5px; color: var(--text); z-index: 200; box-shadow: var(--shadow); opacity: 0; transition: transform 0.25s ease, opacity 0.25s ease; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+.snackbar.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+.snackbar .accent { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="upload-screen">
+  <div class="upload-card">
+    <div class="upload-logo">Anàlisis de Preus</div>
+    <div class="upload-icon">📊</div>
+    <div class="upload-title">Carrega el teu Excel</div>
+    <div class="upload-sub">
+      Arrossega o selecciona el fitxer <strong>.xlsx</strong> amb l'historial de preus.<br>
+      El format ha de tenir <strong>ARTICLE · DESCRIPCIÓ · Tipus</strong> i columnes de trimestres.
+    </div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" accept=".xlsx,.xls" id="file-input">
+      <div class="drop-label">
+        <span>Selecciona fitxer</span> o arrossega aquí
+        <div class="drop-hint">.xlsx · .xls · fins a 20 MB</div>
+      </div>
+    </div>
+    <div class="upload-specs">
+      <span class="spec-tag">Columnes auto-detectades</span>
+      <span class="spec-tag">Errors ignorats</span>
+      <span class="spec-tag">Zeros ignorats</span>
+      <span class="spec-tag">Escalable</span>
+    </div>
+    <div class="loading-bar" id="loading-bar"><div class="loading-bar-fill"></div></div>
+    <div id="upload-error"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand"><div class="dot"></div>Anàlisis de Preus</div>
+    <nav class="topbar-nav">
+      <button class="nav-pill active" data-page="overview">Resum<span class="kbd">1</span></button>
+      <button class="nav-pill" data-page="temporal">Evolució<span class="kbd">2</span></button>
+      <button class="nav-pill" data-page="comparativa">Comparativa<span class="kbd">3</span></button>
+      <button class="nav-pill" data-page="volatilitat">Volatilitat<span class="kbd">4</span></button>
+    </nav>
+    <div class="topbar-meta">
+      <div class="meta-chip" id="chip-periods">—</div>
+      <div class="meta-chip" id="chip-articles">—</div>
+      <button class="icon-btn" id="theme-btn" title="Canviar tema (t)">🌑</button>
+      <button class="reload-btn" id="reload-btn">↺ Canviar fitxer</button>
+    </div>
+  </div>
+
+  <div class="filterbar">
+    <span class="filter-label">Tipus:</span>
+    <button class="fchip" data-type="all" data-active="true">Tots</button>
+    <button class="fchip" data-type="Polida">Polida</button>
+    <button class="fchip" data-type="Decapada">Decapada</button>
+    <button class="fchip" data-type="Galva">Galvanitzada</button>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Rang:</span>
+    <button class="rchip" data-range="all" data-active="true">Tot</button>
+    <button class="rchip" data-range="2021">Des de 2021</button>
+    <button class="rchip" data-range="2023">Des de 2023</button>
+    <button class="rchip" data-range="2025">Des de 2025</button>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" class="search-input" id="global-search" placeholder="Cerca codi o descripció…">
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page active" id="page-overview">
+      <div class="sh"><div class="sh-title">Resum Executiu</div><div class="sh-sub" id="sh-sub-overview">—</div></div>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="alert-strip" id="alert-strip"></div>
+      <div class="grid-2 mb">
+        <div class="card">
+          <div class="card-title">Evolució mitjana per tipus</div>
+          <div style="height:260px"><canvas id="c-overview"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Distribució de preus actual</div>
+          <div style="height:260px"><canvas id="c-donut"></canvas></div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="card-title">Taula d'articles <span style="color:var(--text3);text-transform:none;font-weight:400;letter-spacing:0">— clica una fila per veure l'evolució</span></div>
+        <div class="tbl-wrap"><table id="main-table">
+          <thead><tr id="main-thead"></tr></thead>
+          <tbody id="tbl-body"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-temporal">
+      <div class="sh"><div class="sh-title">Evolució Temporal</div><div class="sh-sub">Selecciona articles per comparar</div></div>
+      <div class="art-select-wrap">
+        <select id="art-select" class="art-select" multiple size="6"></select>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn-sm" id="sel-all">Seleccionar tots</button>
+          <button class="btn-sm" id="sel-none">Netejar</button>
+          <button class="btn-sm" data-sel-type="Polida">Polida</button>
+          <button class="btn-sm" data-sel-type="Decapada">Decapada</button>
+          <button class="btn-sm" data-sel-type="Galva">Galva</button>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="card-title">Preus per article (€/1000kg)</div>
+        <div style="height:320px"><canvas id="c-temporal"></canvas></div>
+      </div>
+      <div class="grid-12">
+        <div class="card">
+          <div class="card-title">Variació interanual (ΔAnual €/t)</div>
+          <div style="height:220px"><canvas id="c-yoy"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Variació trimestral (ΔQ €/t)</div>
+          <div style="height:220px"><canvas id="c-qoq"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-comparativa">
+      <div class="sh"><div class="sh-title">Comparativa d'Articles</div><div class="sh-sub">Rànking, posicionament i mapa de calor</div></div>
+      <div class="grid-12 mb">
+        <div class="card">
+          <div class="card-title">Rànking de preus · últim període</div>
+          <div style="height:340px"><canvas id="c-ranking"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Preu actual vs. Mitjana hist. (%)</div>
+          <div style="height:340px"><canvas id="c-bullet"></canvas></div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="card-title">Mapa de calor · Preus per article i trimestre (€/1000kg)</div>
+        <div id="heatmap-scroll"><div id="heatmap-container" style="padding:8px 0"></div></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-volatilitat">
+      <div class="sh"><div class="sh-title">Volatilitat i Alertes</div><div class="sh-sub">Risc de preus, dispersió i senyals actius</div></div>
+      <div class="grid-3 mb">
+        <div class="card">
+          <div class="card-title">Coeficient de variació (%)</div>
+          <div id="vol-bars" style="max-height:340px;overflow-y:auto;padding-right:4px"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Banda de preus (Mitjana ± 1σ)</div>
+          <div style="height:320px"><canvas id="c-range"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Dispersió: preu vs. volatilitat</div>
+          <div style="height:320px"><canvas id="c-scatter"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Alertes actives · variació >5% vs. trimestre anterior</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>Codi</th><th>Descripció</th><th>Tipus</th>
+            <th class="r">Preu ant.</th><th class="r">Preu act.</th>
+            <th class="r">Δ €</th><th class="r">Δ %</th><th>Senyal</th>
+          </tr></thead>
+          <tbody id="alert-tbl"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="snackbar" id="snackbar"></div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════
+   APP STATE
+   ════════════════════════════════════════════════════ */
+const App = {
+  data: [],
+  periods: [],
+  filters: { type: 'all', rangeStart: 0, search: '' },
+  ui: {
+    page: 'overview',
+    isLight: true,
+    tableSort: { col: null, dir: 1 },
+    selectedArticles: new Set(),
+  },
+  charts: {},
+  computed: null,
+};
+
+/* ════════════════════════════════════════════════════
+   UTILS
+   ════════════════════════════════════════════════════ */
+const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $$ = (sel, ctx=document) => [...ctx.querySelectorAll(sel)];
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmt(n) { return n == null || !isFinite(n) ? '—' : Math.round(n).toLocaleString('ca-ES'); }
+function fmtPct(n) { return n == null || !isFinite(n) ? '—' : (n>=0?'+':'') + n.toFixed(1) + '%'; }
+function pct(a, b) { return (b != null && b !== 0 && a != null) ? (a-b)/b*100 : null; }
+function avg(arr) {
+  let s = 0, n = 0;
+  for (const x of arr) if (x != null) { s += x; n++; }
+  return n > 0 ? s/n : null;
+}
+function tipusColor(t) {
+  return t === 'Polida' ? '#5b8def' : t === 'Decapada' ? '#fbbf24' : '#34d399';
+}
+
+let snackTimer = null;
+function snack(msg, html=false) {
+  const el = $('#snackbar');
+  if (html) el.innerHTML = msg; else el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(snackTimer);
+  snackTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* ════════════════════════════════════════════════════
+   DATA LAYER — memoized derived stats
+   ════════════════════════════════════════════════════ */
+function computeArticleStats(article, rangeStart) {
+  const prices = article.prices;
+  const len = prices.length;
+
+  let sum = 0, count = 0, mn = Infinity, mx = -Infinity;
+  for (let i = rangeStart; i < len; i++) {
+    const v = prices[i];
+    if (v == null) continue;
+    sum += v; count++;
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
+  if (count === 0) return null;
+  const mean = sum / count;
+
+  let sumSq = 0;
+  for (let i = rangeStart; i < len; i++) {
+    const v = prices[i];
+    if (v == null) continue;
+    const d = v - mean;
+    sumSq += d * d;
+  }
+  const sd = Math.sqrt(sumSq / count);
+  const cv = mean > 0 ? sd / mean * 100 : 0;
+
+  let lastIdx = -1, lastVal = null;
+  for (let i = len - 1; i >= rangeStart; i--) {
+    if (prices[i] != null) { lastIdx = i; lastVal = prices[i]; break; }
+  }
+  let prevVal = null;
+  for (let i = lastIdx - 1; i >= rangeStart; i--) {
+    if (prices[i] != null) { prevVal = prices[i]; break; }
+  }
+  let yearAgoVal = null;
+  if (lastIdx >= 4) {
+    for (let delta = 4; delta <= 6; delta++) {
+      const idx = lastIdx - delta;
+      if (idx >= rangeStart && prices[idx] != null) { yearAgoVal = prices[idx]; break; }
+    }
+  }
+
+  return {
+    code: article.code,
+    desc: article.desc,
+    tipus: article.tipus,
+    prices,
+    last: { val: lastVal, idx: lastIdx },
+    prev: { val: prevVal },
+    yearAgo: yearAgoVal,
+    mean, sd, cv,
+    min: mn, max: mx, count,
+    range: mx - mn,
+    trimVar: pct(lastVal, prevVal),
+    yearVar: pct(lastVal, yearAgoVal),
+    pctVsMean: pct(lastVal, mean),
+  };
+}
+
+function getComputed() {
+  if (App.computed) return App.computed;
+
+  const { type, rangeStart, search } = App.filters;
+  const q = search.toLowerCase().trim();
+  const periodLen = App.periods.length;
+
+  const filtered = App.data.filter(d => {
+    if (type !== 'all' && d.tipus !== type) return false;
+    if (q && !d.code.toLowerCase().includes(q) && !d.desc.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const stats = filtered.map(d => computeArticleStats(d, rangeStart)).filter(Boolean);
+
+  // Aggregations per period
+  const typeBuckets = {};
+  const globalSum = new Array(periodLen).fill(0);
+  const globalCnt = new Array(periodLen).fill(0);
+
+  for (const s of stats) {
+    if (!typeBuckets[s.tipus]) {
+      typeBuckets[s.tipus] = { sum: new Array(periodLen).fill(0), cnt: new Array(periodLen).fill(0) };
+    }
+    const b = typeBuckets[s.tipus];
+    for (let i = rangeStart; i < periodLen; i++) {
+      const v = s.prices[i];
+      if (v != null) {
+        b.sum[i] += v; b.cnt[i]++;
+        globalSum[i] += v; globalCnt[i]++;
+      }
+    }
+  }
+  const avgByType = {};
+  for (const [t, b] of Object.entries(typeBuckets)) {
+    avgByType[t] = b.sum.map((s, i) => b.cnt[i] > 0 ? s / b.cnt[i] : null);
+  }
+  const avgGlobal = globalSum.map((s, i) => globalCnt[i] > 0 ? s / globalCnt[i] : null);
+
+  App.computed = { stats, avgByType, avgGlobal };
+  return App.computed;
+}
+function invalidate() { App.computed = null; }
+
+/* ════════════════════════════════════════════════════
+   EXCEL PARSING
+   ════════════════════════════════════════════════════ */
+function parseExcelRows(rows) {
+  if (!rows || rows.length < 2) throw new Error('El fitxer no té dades.');
+  const header = rows[0];
+  const periodCols = [];
+  for (let c = 3; c < header.length; c++) {
+    const m = String(header[c] || '').match(/(\d)\s*TRIMESTRE\s*(\d{4})/i);
+    if (m) periodCols.push({ col: c, label: `${m[1]}T ${m[2]}`, q: +m[1], y: +m[2] });
+  }
+  if (!periodCols.length) throw new Error("No s'han trobat columnes de trimestre.");
+  periodCols.sort((a, b) => a.y !== b.y ? a.y - b.y : a.q - b.q);
+  const periods = periodCols.map(p => p.label);
+
+  const data = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || (!row[0] && !row[1])) continue;
+    const code = String(row[0] || '').trim();
+    const desc = String(row[1] || '').trim();
+    const tipus = String(row[2] || '').trim();
+    if (!code || !tipus) continue;
+    const prices = periodCols.map(p => {
+      const raw = row[p.col];
+      if (raw == null || typeof raw === 'string') return null;
+      const n = Number(raw);
+      return (!isFinite(n) || n <= 0) ? null : n;
+    });
+    data.push({ code, desc, tipus, prices });
+  }
+  if (!data.length) throw new Error("No s'han trobat articles vàlids.");
+  return { data, periods };
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const err = $('#upload-error');
+  err.style.display = 'none';
+  const lb = $('#loading-bar');
+  lb.style.display = 'block';
+  lb.querySelector('.loading-bar-fill').style.animation = 'loadAnim 0.6s ease forwards';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+      const { data, periods } = parseExcelRows(rows);
+      App.data = data;
+      App.periods = periods;
+      App.filters.rangeStart = 0;
+      invalidate();
+      showApp();
+      snack(`<span class="accent">${data.length}</span> articles · <span class="accent">${periods.length}</span> trimestres carregats`, true);
+    } catch (ex) {
+      lb.style.display = 'none';
+      err.style.display = 'block';
+      err.textContent = 'Error: ' + ex.message;
+    }
+  };
+  reader.onerror = () => {
+    lb.style.display = 'none';
+    err.style.display = 'block';
+    err.textContent = "No s'ha pogut llegir el fitxer.";
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ════════════════════════════════════════════════════
+   CHART THEME
+   ════════════════════════════════════════════════════ */
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.legend.labels.boxWidth = 8;
+Chart.defaults.plugins.legend.labels.padding = 14;
+
+function applyChartTheme() {
+  const L = App.ui.isLight;
+  Chart.defaults.color = L ? '#475569' : '#9aa3bc';
+  Chart.defaults.borderColor = L ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)';
+  Chart.defaults.plugins.tooltip.backgroundColor = L ? '#ffffff' : '#1f2538';
+  Chart.defaults.plugins.tooltip.borderColor = L ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.11)';
+  Chart.defaults.plugins.tooltip.titleColor = L ? '#0f172a' : '#e2e6f0';
+  Chart.defaults.plugins.tooltip.bodyColor = L ? '#475569' : '#7a8099';
+}
+applyChartTheme();
+
+function destroyChart(id) {
+  if (App.charts[id]) { App.charts[id].destroy(); delete App.charts[id]; }
+}
+
+/* ════════════════════════════════════════════════════
+   SPARKLINE
+   ════════════════════════════════════════════════════ */
+function sparkline(prices, startIdx) {
+  const pts = [];
+  for (let i = startIdx; i < prices.length; i++) {
+    if (prices[i] != null) pts.push({ i, v: prices[i] });
+  }
+  if (pts.length < 2) return '<svg width="60" height="20"></svg>';
+  let mnX = Infinity, mxX = -Infinity, mnY = Infinity, mxY = -Infinity;
+  for (const p of pts) {
+    if (p.i < mnX) mnX = p.i; if (p.i > mxX) mxX = p.i;
+    if (p.v < mnY) mnY = p.v; if (p.v > mxY) mxY = p.v;
+  }
+  const sc = (v, lo, hi, oLo, oHi) => oLo + (v-lo)/(hi-lo||1)*(oHi-oLo);
+  const polyPts = pts.map(p => `${sc(p.i,mnX,mxX,2,58).toFixed(1)},${sc(p.v,mnY,mxY,18,2).toFixed(1)}`).join(' ');
+  const trend = pts[pts.length-1].v - pts[0].v;
+  const lc = trend < -5 ? '#34d399' : trend > 5 ? '#f87171' : '#7a8099';
+  return `<svg width="60" height="20"><polyline points="${polyPts}" fill="none" stroke="${lc}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+}
+
+/* ════════════════════════════════════════════════════
+   PAGE: OVERVIEW
+   ════════════════════════════════════════════════════ */
+function renderOverview() {
+  renderKPIs();
+  renderAlerts();
+  renderOverviewChart();
+  renderDonut();
+  renderMainTable();
+}
+
+function renderKPIs() {
+  const { stats } = getComputed();
+  const grid = $('#kpi-row');
+
+  if (!stats.length) {
+    grid.innerHTML = '<div class="kpi" style="grid-column:1/-1"><div class="empty-state">Cap article coincideix amb els filtres actuals</div></div>';
+    return;
+  }
+
+  const lasts = stats.map(s => s.last.val).filter(v => v != null);
+  const prevs = stats.map(s => s.prev.val).filter(v => v != null);
+  const yearAgos = stats.map(s => s.yearAgo).filter(v => v != null);
+  const avgLast = avg(lasts);
+  const avgPrev = avg(prevs);
+  const avgYearAgo = avg(yearAgos);
+  const trimVar = pct(avgLast, avgPrev);
+  const yearVar = pct(avgLast, avgYearAgo);
+
+  let gMin = Infinity, gMax = -Infinity;
+  for (const s of stats) { if (s.min < gMin) gMin = s.min; if (s.max > gMax) gMax = s.max; }
+
+  const alertCount = stats.filter(s => s.trimVar != null && Math.abs(s.trimVar) > 5).length;
+
+  const kpis = [
+    { label:'Preu mitjà actual', val:fmt(avgLast), unit:'€/t', delta: fmtPct(trimVar)+' vs. trim. ant.', dir: trimVar, color:'var(--accent)' },
+    { label:'Variació vs. any anterior', val: fmtPct(yearVar), unit:'', delta: avgYearAgo != null ? `Fa 4 trim.: ${fmt(avgYearAgo)} €/t` : 'Sense dades any anterior', dir: yearVar, color: (yearVar||0) > 0 ? 'var(--red)' : 'var(--green)' },
+    { label:'Rang de preus global', val: `${fmt(gMin)}–${fmt(gMax)}`, unit:'', delta:'Mínim – Màxim històric', dir: 0, color:'var(--accent2)' },
+    { label:'Articles en alerta', val: String(alertCount), unit:'', delta:'Variació >5% vs. trim. ant.', dir: 0, color:'var(--amber)' },
+  ];
+
+  grid.innerHTML = kpis.map(k => `
+    <div class="kpi" style="--kpi-color:${k.color}">
+      <div class="kpi-label">${esc(k.label)}</div>
+      <div class="kpi-val">${k.val}${k.unit?` <span class="unit">${k.unit}</span>`:''}</div>
+      <div class="kpi-delta ${k.dir>5?'up':k.dir<-5?'dn':'nt'}">
+        ${k.dir>2?'↑':k.dir<-2?'↓':''} ${esc(k.delta)}
+      </div>
+    </div>`).join('');
+}
+
+function renderAlerts() {
+  const { stats } = getComputed();
+  const alerts = stats.filter(s => s.trimVar != null && Math.abs(s.trimVar) > 5)
+    .sort((a,b) => Math.abs(b.trimVar) - Math.abs(a.trimVar)).slice(0, 10);
+
+  const strip = $('#alert-strip');
+  if (!alerts.length) {
+    strip.innerHTML = '<span class="ano-alerts">✓ Cap alerta activa (variació ≤5%)</span>';
+    return;
+  }
+  strip.innerHTML = alerts.map(a => `
+    <div class="apill ${a.trimVar>0?'aup':'adn'}" data-code="${esc(a.code)}" title="${esc(a.desc)}">
+      <span class="adot"></span>${esc(a.code)} ${a.trimVar>0?'↑':'↓'} ${fmtPct(a.trimVar)}
+    </div>`).join('');
+
+  $$('#alert-strip .apill').forEach(el => {
+    el.addEventListener('click', () => drillTo(el.dataset.code));
+  });
+}
+
+function renderOverviewChart() {
+  destroyChart('overview');
+  const { avgByType } = getComputed();
+  const si = App.filters.rangeStart;
+  const labels = App.periods.slice(si);
+
+  const datasets = Object.entries(avgByType).map(([t, vals]) => ({
+    label: t,
+    data: vals.slice(si).map(v => v != null ? parseFloat(v.toFixed(1)) : null),
+    borderColor: tipusColor(t),
+    backgroundColor: tipusColor(t) + '18',
+    borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
+    tension: 0.35, spanGaps: true,
+  }));
+
+  App.charts.overview = new Chart($('#c-overview'), {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.parsed.y)} €/t` } } },
+      scales: { x: { ticks: { maxRotation: 45, font: { size: 9 } } }, y: { ticks: { callback: v => fmt(v)+'€' } } }
+    }
+  });
+}
+
+function renderDonut() {
+  destroyChart('donut');
+  const { stats } = getComputed();
+  const types = ['Polida','Decapada','Galva'].filter(t => stats.some(s => s.tipus === t));
+  const vals = types.map(t => {
+    const ls = stats.filter(s => s.tipus === t).map(s => s.last.val).filter(v => v != null);
+    return ls.length ? parseFloat(avg(ls).toFixed(1)) : 0;
+  });
+
+  App.charts.donut = new Chart($('#c-donut'), {
+    type: 'doughnut',
+    data: { labels: types, datasets: [{ data: vals, backgroundColor: types.map(tipusColor), borderColor: App.ui.isLight ? '#ffffff' : '#111520', borderWidth: 1.5, hoverOffset: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.parsed)} €/t` } } }
+    }
+  });
+}
+
+const TABLE_COLS = [
+  { key:'code', label:'Codi', sortable:true, align:'left' },
+  { key:'desc', label:'Descripció', sortable:true, align:'left' },
+  { key:'tipus', label:'Tipus', sortable:true, align:'left' },
+  { key:'lastVal', label:'Preu actual', sortable:true, align:'r' },
+  { key:'trimVar', label:'Var. trim.', sortable:true, align:'r' },
+  { key:'yearVar', label:'Var. anual', sortable:true, align:'r' },
+  { key:'min', label:'Mínim', sortable:true, align:'r' },
+  { key:'max', label:'Màxim', sortable:true, align:'r' },
+  { key:'count', label:'Períodes', sortable:true, align:'r' },
+  { key:'spark', label:'Tendència', sortable:false, align:'left' },
+];
+
+function renderMainTable() {
+  const { stats } = getComputed();
+  const { col, dir } = App.ui.tableSort;
+
+  const head = $('#main-thead');
+  head.innerHTML = TABLE_COLS.map(c => {
+    const sorted = c.key === col;
+    return `<th class="${c.align==='r'?'r':''} ${sorted?'sorted':''}" data-col="${c.key}" data-sortable="${c.sortable}">
+      ${esc(c.label)}${c.sortable ? `<span class="sort-arrow">${sorted ? (dir>0?'↑':'↓') : '↕'}</span>` : ''}
+    </th>`;
+  }).join('');
+
+  let sorted = stats;
+  if (col) {
+    sorted = [...stats].sort((a, b) => {
+      const va = col === 'lastVal' ? a.last.val : a[col];
+      const vb = col === 'lastVal' ? b.last.val : b[col];
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === 'string') return va.localeCompare(vb) * dir;
+      return (va - vb) * dir;
+    });
+  }
+
+  const body = $('#tbl-body');
+  if (!sorted.length) {
+    body.innerHTML = `<tr><td colspan="${TABLE_COLS.length}" class="empty-state">Cap article coincideix</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = sorted.map(s => {
+    const trimCls = s.trimVar==null?'chg-nt':s.trimVar>5?'chg-up':s.trimVar<-5?'chg-dn':'chg-nt';
+    const yearCls = s.yearVar==null?'chg-nt':s.yearVar>5?'chg-up':s.yearVar<-5?'chg-dn':'chg-nt';
+    return `<tr class="clickable" data-code="${esc(s.code)}">
+      <td class="code">${esc(s.code)}</td>
+      <td class="primary desc-cell" title="${esc(s.desc)}">${esc(s.desc)}</td>
+      <td><span class="badge b-${esc(s.tipus.toLowerCase())}">${esc(s.tipus)}</span></td>
+      <td class="r primary">${fmt(s.last.val)}</td>
+      <td class="r ${trimCls}">${fmtPct(s.trimVar)}</td>
+      <td class="r ${yearCls}">${fmtPct(s.yearVar)}</td>
+      <td class="r">${fmt(s.min)}</td>
+      <td class="r">${fmt(s.max)}</td>
+      <td class="r" style="color:var(--text3)">${s.count}</td>
+      <td class="spark">${sparkline(s.prices, App.filters.rangeStart)}</td>
+    </tr>`;
+  }).join('');
+
+  $$('#tbl-body tr.clickable').forEach(tr => {
+    tr.addEventListener('click', () => drillTo(tr.dataset.code));
+  });
+
+  $$('#main-thead th[data-sortable="true"]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.col;
+      if (App.ui.tableSort.col === key) App.ui.tableSort.dir = -App.ui.tableSort.dir;
+      else App.ui.tableSort = { col: key, dir: 1 };
+      renderMainTable();
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   PAGE: TEMPORAL
+   ════════════════════════════════════════════════════ */
+const PALETTE = ['#5b8def','#34d399','#fbbf24','#f87171','#a78bfa','#38bdf8','#fb923c','#f472b6','#a3e635','#60a5fa'];
+
+function renderTemporal() {
+  populateArticleSelect();
+  renderTemporalChart();
+  renderYoY();
+  renderQoQ();
+}
+
+function populateArticleSelect() {
+  const sel = $('#art-select');
+  const { type, search } = App.filters;
+  const q = search.toLowerCase().trim();
+  const visible = App.data.filter(d => {
+    if (type !== 'all' && d.tipus !== type) return false;
+    if (q && !d.code.toLowerCase().includes(q) && !d.desc.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if (App.ui.selectedArticles.size === 0 && visible.length) {
+    App.ui.selectedArticles = new Set(visible.slice(0, 3).map(d => d.code));
+  }
+  sel.innerHTML = visible.map(d =>
+    `<option value="${esc(d.code)}" style="color:${tipusColor(d.tipus)}" ${App.ui.selectedArticles.has(d.code)?'selected':''}>${esc(d.code)} · ${esc(d.desc)}</option>`
+  ).join('');
+}
+
+function syncSelectedFromUI() {
+  App.ui.selectedArticles = new Set([...$('#art-select').selectedOptions].map(o => o.value));
+}
+
+function renderTemporalChart() {
+  destroyChart('temporal');
+  const items = App.data.filter(d => App.ui.selectedArticles.has(d.code));
+  const si = App.filters.rangeStart;
+  const labels = App.periods.slice(si);
+  const datasets = items.map((d, i) => ({
+    label: d.code,
+    data: d.prices.slice(si),
+    borderColor: PALETTE[i % PALETTE.length],
+    backgroundColor: 'transparent',
+    borderWidth: 1.5, pointRadius: 2, pointHoverRadius: 4,
+    tension: 0.3, spanGaps: true,
+    descMap: d.desc,
+  }));
+  App.charts.temporal = new Chart($('#c-temporal'), {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 } } },
+        tooltip: { callbacks: {
+          afterLabel: c => c.dataset.descMap || '',
+          label: c => `${c.dataset.label}: ${fmt(c.parsed.y)} €/t`,
+        }}
+      },
+      scales: { x: { ticks: { maxRotation: 45, font: { size: 9 } } }, y: { ticks: { callback: v => fmt(v)+'€' } } }
+    }
+  });
+}
+
+function renderYoY() {
+  destroyChart('yoy');
+  const si = App.filters.rangeStart;
+  const periodLen = App.periods.length;
+
+  // Compute average per period using ONLY selected articles
+  const selectedItems = App.data.filter(d => App.ui.selectedArticles.has(d.code));
+  const avgPerPeriod = new Array(periodLen).fill(null);
+  for (let i = si; i < periodLen; i++) {
+    let sum = 0, n = 0;
+    for (const d of selectedItems) {
+      const v = d.prices[i];
+      if (v != null) { sum += v; n++; }
+    }
+    if (n > 0) avgPerPeriod[i] = sum / n;
+  }
+
+  // Aggregate by year
+  const yearMap = {};
+  for (let i = si; i < periodLen; i++) {
+    const v = avgPerPeriod[i];
+    if (v == null) continue;
+    const y = App.periods[i].split(' ')[1];
+    if (!yearMap[y]) yearMap[y] = { sum: 0, n: 0 };
+    yearMap[y].sum += v; yearMap[y].n++;
+  }
+  const years = Object.keys(yearMap).sort();
+  const yearAvg = years.map(y => yearMap[y].sum / yearMap[y].n);
+  const deltas = years.slice(1).map((_, i) => yearAvg[i+1] - yearAvg[i]);
+
+  if (selectedItems.length === 0 || deltas.length === 0) {
+    // Render empty state
+    App.charts.yoy = new Chart($('#c-yoy'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ data: [] }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+      }
+    });
+    return;
+  }
+
+  App.charts.yoy = new Chart($('#c-yoy'), {
+    type: 'bar',
+    data: { labels: years.slice(1), datasets: [{ data: deltas.map(v => parseFloat(v.toFixed(1))), backgroundColor: deltas.map(v => v>0?'rgba(248,113,113,0.65)':'rgba(52,211,153,0.65)'), borderColor: deltas.map(v => v>0?'#f87171':'#34d399'), borderWidth: 1, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.y>=0?'+':''}${c.parsed.y.toFixed(0)} €/t` } } },
+      scales: { x: { grid: { display: false } }, y: { ticks: { callback: v => (v>=0?'+':'')+v+'€' } } }
+    }
+  });
+}
+
+function renderQoQ() {
+  destroyChart('qoq');
+  const si = App.filters.rangeStart;
+  const periodLen = App.periods.length;
+
+  // Compute average per period using ONLY selected articles
+  const selectedItems = App.data.filter(d => App.ui.selectedArticles.has(d.code));
+  const avgPerPeriod = new Array(periodLen).fill(null);
+  for (let i = si; i < periodLen; i++) {
+    let sum = 0, n = 0;
+    for (const d of selectedItems) {
+      const v = d.prices[i];
+      if (v != null) { sum += v; n++; }
+    }
+    if (n > 0) avgPerPeriod[i] = sum / n;
+  }
+
+  const labels = [], deltas = [];
+  for (let i = si + 1; i < periodLen; i++) {
+    if (avgPerPeriod[i] != null && avgPerPeriod[i-1] != null) {
+      deltas.push(parseFloat((avgPerPeriod[i] - avgPerPeriod[i-1]).toFixed(1)));
+      labels.push(App.periods[i]);
+    }
+  }
+
+  App.charts.qoq = new Chart($('#c-qoq'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data: deltas, backgroundColor: deltas.map(v => v>0?'rgba(248,113,113,0.6)':'rgba(52,211,153,0.6)'), borderRadius: 3 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 9 } } }, y: { ticks: { callback: v => (v>0?'+':'')+v+'€' } } }
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   PAGE: COMPARATIVA
+   ════════════════════════════════════════════════════ */
+function renderComparativa() {
+  renderRanking();
+  renderBullet();
+  renderHeatmap();
+}
+
+function renderRanking() {
+  destroyChart('ranking');
+  const items = getComputed().stats.filter(s => s.last.val != null).sort((a,b) => b.last.val - a.last.val);
+  App.charts.ranking = new Chart($('#c-ranking'), {
+    type: 'bar',
+    data: { labels: items.map(s => s.code), datasets: [{ data: items.map(s => s.last.val), backgroundColor: items.map(s => tipusColor(s.tipus)+'88'), borderColor: items.map(s => tipusColor(s.tipus)), borderWidth: 1, borderRadius: 3 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        title: c => c.length ? items[c[0].dataIndex].code : '',
+        afterTitle: c => c.length ? items[c[0].dataIndex].desc : '',
+        label: c => `Preu: ${fmt(c.parsed.x)} €/t`,
+      }}},
+      scales: { x: { ticks: { callback: v => fmt(v)+'€' } }, y: { ticks: { font: { size: 9 }, grid: { display: false } } } }
+    }
+  });
+}
+
+function renderBullet() {
+  destroyChart('bullet');
+  const items = getComputed().stats.filter(s => s.pctVsMean != null).sort((a,b) => b.pctVsMean - a.pctVsMean).slice(0, 18);
+  App.charts.bullet = new Chart($('#c-bullet'), {
+    type: 'bar',
+    data: { labels: items.map(s => s.code), datasets: [{ data: items.map(s => parseFloat(s.pctVsMean.toFixed(1))), backgroundColor: items.map(s => s.pctVsMean>0?'rgba(248,113,113,0.65)':'rgba(52,211,153,0.65)'), borderColor: items.map(s => s.pctVsMean>0?'#f87171':'#34d399'), borderWidth: 1, borderRadius: 3 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        title: c => c.length ? items[c[0].dataIndex].code : '',
+        afterTitle: c => c.length ? items[c[0].dataIndex].desc : '',
+        label: c => `${c.parsed.x>=0?'+':''}${c.parsed.x.toFixed(1)}% vs. mitjana`,
+      }}},
+      scales: { x: { ticks: { callback: v => (v>=0?'+':'')+v+'%' } }, y: { ticks: { font: { size: 9 }, grid: { display: false } } } }
+    }
+  });
+}
+
+function renderHeatmap() {
+  const { stats } = getComputed();
+  const si = App.filters.rangeStart;
+  const labels = App.periods.slice(si);
+  const container = $('#heatmap-container');
+
+  if (!stats.length) { container.innerHTML = '<div class="empty-state">Cap article coincideix</div>'; return; }
+
+  let mn = Infinity, mx = -Infinity;
+  for (const s of stats) { if (s.min < mn) mn = s.min; if (s.max > mx) mx = s.max; }
+
+  const heatColor = v => {
+    if (v == null) return App.ui.isLight ? 'rgba(0,0,0,0.04)' : 'var(--surface3)';
+    const t = (v - mn) / (mx - mn || 1);
+    if (App.ui.isLight) {
+      if (t < 0.33) return `hsl(155, 55%, ${78-t*22}%)`;
+      if (t < 0.66) return `hsl(${42-t*8}, 80%, ${72-t*10}%)`;
+      return `hsl(${10-t*5}, 78%, ${72-t*15}%)`;
+    } else {
+      if (t < 0.3) return `hsl(155, 65%, ${18+t*25}%)`;
+      if (t < 0.65) return `hsl(${45-t*10}, 70%, 38%)`;
+      return `hsl(${10-t*8}, 70%, 42%)`;
+    }
+  };
+
+  const cols = labels.length;
+  const parts = [`<div style="display:grid;grid-template-columns:240px repeat(${cols},38px);gap:2px;min-width:max-content">`];
+  parts.push('<div></div>');
+  for (const p of labels) {
+    parts.push(`<div class="hm-header" style="height:44px;writing-mode:vertical-rl;transform:rotate(180deg)">${esc(p)}</div>`);
+  }
+  for (const s of stats) {
+    const short = s.desc.length > 22 ? s.desc.substring(0,20)+'…' : s.desc;
+    parts.push(`<div class="hm-label" title="${esc(s.code)} · ${esc(s.desc)}" data-code="${esc(s.code)}">
+      <span style="color:var(--text3);font-family:var(--mono)">${esc(s.code)}</span>
+      <span class="hm-label-desc" style="color:var(--text2);font-size:9.5px">${esc(short)}</span>
+    </div>`);
+    for (let i = 0; i < cols; i++) {
+      const v = s.prices[si + i];
+      parts.push(`<div class="hm-cell" style="background:${heatColor(v)}" title="${esc(s.code)} · ${esc(s.desc)}\n${esc(labels[i])}: ${v!=null?fmt(v)+' €/t':'—'}">${v!=null?fmt(v):''}</div>`);
+    }
+  }
+  parts.push('</div>');
+  container.innerHTML = parts.join('');
+
+  $$('#heatmap-container .hm-label[data-code]').forEach(el => {
+    el.addEventListener('click', () => drillTo(el.dataset.code));
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   PAGE: VOLATILITAT
+   ════════════════════════════════════════════════════ */
+function renderVolatilitat() {
+  renderVolBars();
+  renderRangeChart();
+  renderScatter();
+  renderAlertTable();
+}
+
+function renderVolBars() {
+  const items = [...getComputed().stats].sort((a,b) => b.cv - a.cv);
+  const maxCv = items.length ? Math.max(...items.map(s => s.cv)) : 1;
+  $('#vol-bars').innerHTML = items.map(s => `
+    <div class="vbar-row" data-code="${esc(s.code)}">
+      <div class="vbar-head">
+        <div><span class="vbar-code">${esc(s.code)}</span><span class="vbar-desc">${esc(s.desc.length>30?s.desc.substring(0,28)+'…':s.desc)}</span></div>
+        <span style="color:${tipusColor(s.tipus)};font-family:var(--mono);font-size:10px">${s.cv.toFixed(1)}%</span>
+      </div>
+      <div class="vbar-bg"><div class="vbar-fill" style="width:${(s.cv/maxCv*100).toFixed(0)}%;background:${tipusColor(s.tipus)}99"></div></div>
+    </div>`).join('');
+  $$('#vol-bars .vbar-row').forEach(el => {
+    el.addEventListener('click', () => drillTo(el.dataset.code));
+  });
+}
+
+function renderRangeChart() {
+  destroyChart('range');
+  // Sort by mean price (descending) — articles més cars a dalt
+  const items = [...getComputed().stats]
+    .filter(s => s.count > 0)
+    .sort((a, b) => b.mean - a.mean);
+
+  if (!items.length) {
+    App.charts.range = new Chart($('#c-range'), {
+      type: 'bar', data: { labels: [], datasets: [{ data: [] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+    return;
+  }
+
+  // Build floating bars: each bar goes from (mean - sd) to (mean + sd)
+  // Chart.js floating bars are arrays [lo, hi] per data point
+  const labels = items.map(s => s.code);
+  const bandData = items.map(s => [s.mean - s.sd, s.mean + s.sd]);
+  const meanData = items.map(s => s.mean);
+
+  App.charts.range = new Chart($('#c-range'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Banda ±1σ',
+          data: bandData,
+          backgroundColor: items.map(s => tipusColor(s.tipus) + '40'),
+          borderColor: items.map(s => tipusColor(s.tipus) + 'aa'),
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: false,
+          barPercentage: 0.55,
+          categoryPercentage: 0.85,
+        },
+        {
+          label: 'Preu mitjà',
+          data: meanData,
+          type: 'scatter',
+          backgroundColor: items.map(s => tipusColor(s.tipus)),
+          borderColor: App.ui.isLight ? '#ffffff' : '#0b0e15',
+          borderWidth: 1.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointStyle: 'circle',
+          showLine: false,
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle' } },
+        tooltip: {
+          callbacks: {
+            title: c => c.length ? items[c[0].dataIndex].code : '',
+            afterTitle: c => c.length ? items[c[0].dataIndex].desc : '',
+            label: c => {
+              const s = items[c.dataIndex];
+              if (c.datasetIndex === 0) {
+                return `Banda: ${fmt(s.mean - s.sd)} – ${fmt(s.mean + s.sd)} €/t (±${fmt(s.sd)})`;
+              }
+              return `Mitjana: ${fmt(s.mean)} €/t · CV ${s.cv.toFixed(1)}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { callback: v => fmt(v) + '€' },
+          grid: { color: App.ui.isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)' }
+        },
+        y: {
+          ticks: { font: { size: 9 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+function renderScatter() {
+  destroyChart('scatter');
+  const { stats } = getComputed();
+  const types = [...new Set(stats.map(s => s.tipus))];
+  const datasets = types.map(t => ({
+    label: t,
+    data: stats.filter(s => s.tipus === t).map(s => ({ x: parseFloat(s.mean.toFixed(0)), y: parseFloat(s.cv.toFixed(2)), code: s.code, desc: s.desc })),
+    backgroundColor: tipusColor(t)+'99', borderColor: tipusColor(t),
+    borderWidth: 1, pointRadius: 6, pointHoverRadius: 9,
+  }));
+  App.charts.scatter = new Chart($('#c-scatter'), {
+    type: 'scatter', data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: {
+        label: c => `${c.raw.code}: ${fmt(c.parsed.x)}€/t, CV:${c.parsed.y.toFixed(1)}%`,
+        afterLabel: c => c.raw.desc || '',
+      }}},
+      scales: { x: { title: { display: true, text: 'Preu mitjà (€/t)' }, ticks: { callback: v => fmt(v)+'€' } }, y: { title: { display: true, text: 'Volatilitat CV (%)' }, ticks: { callback: v => v.toFixed(1)+'%' } } }
+    }
+  });
+}
+
+function renderAlertTable() {
+  const alerts = getComputed().stats.filter(s => s.trimVar != null && Math.abs(s.trimVar) > 5)
+    .sort((a,b) => Math.abs(b.trimVar) - Math.abs(a.trimVar));
+  const body = $('#alert-tbl');
+  if (!alerts.length) { body.innerHTML = `<tr><td colspan="8" class="empty-state">Cap alerta activa</td></tr>`; return; }
+  body.innerHTML = alerts.map(s => `
+    <tr class="clickable" data-code="${esc(s.code)}">
+      <td class="code">${esc(s.code)}</td>
+      <td class="primary desc-cell" title="${esc(s.desc)}">${esc(s.desc)}</td>
+      <td><span class="badge b-${esc(s.tipus.toLowerCase())}">${esc(s.tipus)}</span></td>
+      <td class="r">${fmt(s.prev.val)}</td>
+      <td class="r">${fmt(s.last.val)}</td>
+      <td class="r ${s.trimVar>0?'chg-up':'chg-dn'}">${s.trimVar>0?'+':''}${fmt(s.last.val-s.prev.val)}</td>
+      <td class="r ${s.trimVar>0?'chg-up':'chg-dn'}">${fmtPct(s.trimVar)}</td>
+      <td style="font-size:16px">${s.trimVar>0?'🔴':'🟢'}</td>
+    </tr>`).join('');
+  $$('#alert-tbl tr.clickable').forEach(tr => {
+    tr.addEventListener('click', () => drillTo(tr.dataset.code));
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   ROUTER
+   ════════════════════════════════════════════════════ */
+const PAGE_RENDERERS = {
+  overview: renderOverview,
+  temporal: renderTemporal,
+  comparativa: renderComparativa,
+  volatilitat: renderVolatilitat,
+};
+
+function navigateTo(page) {
+  if (!PAGE_RENDERERS[page]) return;
+  App.ui.page = page;
+  $$('.page').forEach(p => p.classList.remove('active'));
+  $$('.nav-pill').forEach(b => b.classList.remove('active'));
+  $(`#page-${page}`).classList.add('active');
+  $(`.nav-pill[data-page="${page}"]`).classList.add('active');
+  PAGE_RENDERERS[page]();
+}
+
+function rerender() {
+  invalidate();
+  PAGE_RENDERERS[App.ui.page]();
+}
+
+function drillTo(code) {
+  if (!code) return;
+  App.ui.selectedArticles = new Set([code]);
+  navigateTo('temporal');
+  const article = App.data.find(d => d.code === code);
+  if (article) snack(`Article ${code} — ${article.desc.substring(0,40)}${article.desc.length>40?'…':''}`);
+}
+
+/* ════════════════════════════════════════════════════
+   EVENTS
+   ════════════════════════════════════════════════════ */
+function bindEvents() {
+  $('#file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+  const dz = $('#drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  $$('.nav-pill').forEach(btn => {
+    btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+  });
+
+  $$('.fchip[data-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      App.filters.type = btn.dataset.type;
+      $$('.fchip').forEach(b => b.dataset.active = 'false');
+      btn.dataset.active = 'true';
+      rerender();
+    });
+  });
+
+  $$('.rchip[data-range]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const r = btn.dataset.range;
+      $$('.rchip').forEach(b => b.dataset.active = 'false');
+      btn.dataset.active = 'true';
+      if (r === 'all') App.filters.rangeStart = 0;
+      else {
+        const y = parseInt(r);
+        const idx = App.periods.findIndex(p => p.endsWith(String(y)));
+        App.filters.rangeStart = idx >= 0 ? idx : 0;
+      }
+      rerender();
+    });
+  });
+
+  let searchTimer = null;
+  $('#global-search').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      App.filters.search = e.target.value;
+      rerender();
+    }, 200);
+  });
+
+  $('#art-select').addEventListener('change', () => {
+    syncSelectedFromUI();
+    renderTemporalChart(); renderYoY(); renderQoQ();
+  });
+  $('#sel-all').addEventListener('click', () => {
+    $$('#art-select option').forEach(o => o.selected = true);
+    syncSelectedFromUI(); renderTemporalChart(); renderYoY(); renderQoQ();
+  });
+  $('#sel-none').addEventListener('click', () => {
+    $$('#art-select option').forEach(o => o.selected = false);
+    syncSelectedFromUI(); renderTemporalChart(); renderYoY(); renderQoQ();
+  });
+  $$('.art-select-wrap .btn-sm[data-sel-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.selType;
+      $$('#art-select option').forEach(o => {
+        const d = App.data.find(x => x.code === o.value);
+        o.selected = !!(d && d.tipus === t);
+      });
+      syncSelectedFromUI(); renderTemporalChart(); renderYoY(); renderQoQ();
+    });
+  });
+
+  $('#theme-btn').addEventListener('click', () => {
+    App.ui.isLight = !App.ui.isLight;
+    document.body.classList.toggle('light', App.ui.isLight);
+    $('#theme-btn').textContent = App.ui.isLight ? '🌑' : '🌙';
+    applyChartTheme();
+    if (App.data.length) PAGE_RENDERERS[App.ui.page]();
+  });
+
+  $('#reload-btn').addEventListener('click', () => {
+    if (App.data.length && !confirm('Vols carregar un fitxer nou? Es perdran els filtres actuals.')) return;
+    resetApp();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea')) return;
+    if ($('#upload-screen').style.display !== 'none') return;
+    const map = { '1':'overview', '2':'temporal', '3':'comparativa', '4':'volatilitat' };
+    if (map[e.key]) navigateTo(map[e.key]);
+    else if (e.key === '/' || (e.ctrlKey && e.key === 'f')) { e.preventDefault(); $('#global-search').focus(); }
+    else if (e.key === 't' && !e.ctrlKey && !e.metaKey) $('#theme-btn').click();
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   LIFECYCLE
+   ════════════════════════════════════════════════════ */
+function showApp() {
+  $('#upload-screen').style.display = 'none';
+  $('#app').style.display = 'block';
+  $('#chip-periods').innerHTML = `<b>${App.periods.length}</b> trimestres`;
+  $('#chip-articles').innerHTML = `<b>${App.data.length}</b> articles`;
+  $('#sh-sub-overview').textContent = `${App.periods[0]} → ${App.periods[App.periods.length-1]} · ${App.data.length} articles`;
+  navigateTo('overview');
+}
+
+function resetApp() {
+  App.data = []; App.periods = [];
+  App.filters = { type: 'all', rangeStart: 0, search: '' };
+  App.ui.selectedArticles = new Set();
+  App.ui.tableSort = { col: null, dir: 1 };
+  invalidate();
+  Object.values(App.charts).forEach(c => c.destroy());
+  App.charts = {};
+  $$('.fchip').forEach(b => b.dataset.active = b.dataset.type === 'all' ? 'true' : 'false');
+  $$('.rchip').forEach(b => b.dataset.active = b.dataset.range === 'all' ? 'true' : 'false');
+  $('#global-search').value = '';
+  $('#upload-screen').style.display = 'flex';
+  $('#app').style.display = 'none';
+  $('#file-input').value = '';
+  $('#loading-bar').style.display = 'none';
+  $('#upload-error').style.display = 'none';
+}
+
+bindEvents();
+document.body.classList.toggle('light', App.ui.isLight);
+applyChartTheme();
+</script>
+
+<script>
+/* === DEMO AUTOLOAD · datos ficticios (Proveedor A/B/C · Artículo 1/2/3) === */
+(function(){
+  if (window.__demoAutoload) return; window.__demoAutoload = true;
+  function badge(){
+    var b=document.createElement('div');
+    b.textContent='\u25CF Datos de ejemplo (ficticios)';
+    b.style.cssText='position:fixed;z-index:99999;bottom:14px;right:14px;'
+      +'font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;background:#16233B;'
+      +'padding:8px 13px;border-radius:100px;box-shadow:0 6px 20px -6px rgba(0,0,0,.5);opacity:.94;';
+    document.body.appendChild(b);
+  }
+  async function toFile(url,name,type){
+    var r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('fetch');
+    var b=await r.blob(); return new File([b],name,{type:type||b.type||'application/octet-stream'});
+  }
+  function feed(id,file){
+    var inp=document.getElementById(id); if(!inp) return false;
+    var dt=new DataTransfer(); dt.items.add(file);
+    inp.files=dt.files; inp.dispatchEvent(new Event('change',{bubbles:true})); return true;
+  }
+  async function run(){ try{ await DEMO(); badge(); }catch(e){ /* file:// u offline: carga manual disponible */ } }
+  function boot(){ setTimeout(run, 500); }
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  async function DEMO(){ feed('file-input', await toFile('./preus_exemple.xlsx','preus_exemple.xlsx')); }
+})();
+</script>
+</body>
+</html>

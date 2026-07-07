@@ -1,0 +1,2918 @@
+<!DOCTYPE html>
+<html lang="ca" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StockFlow — Anàlisi de moviments d'estoc</title>
+
+<!-- ============================================================
+     LIBRARIES (CDN)
+     - SheetJS: lectura d'Excel al navegador
+     - ECharts: visualitzacions (millor que Chart.js per a 50k+ files)
+     - Tabulator: taula d'alt rendiment amb virtual DOM
+     - Inter + JetBrains Mono: tipografies tècniques
+============================================================ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_midnight.min.css" rel="stylesheet">
+<script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+
+<style>
+/* ============================================================
+   DESIGN TOKENS — terminal industrial palette
+   Una sola passada per tot el sistema.
+============================================================ */
+:root[data-theme="dark"] {
+  --bg-0: #0a0d12;
+  --bg-1: #11151c;
+  --bg-2: #161b24;
+  --bg-3: #1c232e;
+  --border-1: #1f2937;
+  --border-2: #2a3441;
+  --text-1: #e6ebf2;
+  --text-2: #9aa5b4;
+  --text-3: #5d6878;
+  --accent: #4dd4ac;          /* primary action / brand */
+  --accent-dim: #2a8d6f;
+  --in: #4dd4ac;              /* Entrades */
+  --out: #f59e6b;             /* Sortides */
+  --warn: #f0b355;
+  --danger: #ef6b6b;
+  --info: #6ba8f5;
+  --chart-grid: rgba(255,255,255,0.04);
+  --chart-axis: #3a4654;
+  --shadow-1: 0 1px 0 rgba(255,255,255,0.02), 0 0 0 1px rgba(255,255,255,0.01);
+}
+
+:root[data-theme="light"] {
+  --bg-0: #f7f8fa;
+  --bg-1: #ffffff;
+  --bg-2: #ffffff;
+  --bg-3: #f1f3f6;
+  --border-1: #e5e8ed;
+  --border-2: #d6dbe2;
+  --text-1: #0e1420;
+  --text-2: #4a5568;
+  --text-3: #8a96a8;
+  --accent: #117a5e;
+  --accent-dim: #4dd4ac;
+  --in: #117a5e;
+  --out: #c2570f;
+  --warn: #b88425;
+  --danger: #c2410c;
+  --info: #1e6fc7;
+  --chart-grid: rgba(0,0,0,0.05);
+  --chart-axis: #94a3b8;
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+}
+
+/* ============================================================
+   RESET + BASE
+============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-1);
+  background: var(--bg-0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+}
+.mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-feature-settings: 'zero', 'ss01'; }
+button { font-family: inherit; cursor: pointer; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 5px; border: 2px solid var(--bg-0); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ============================================================
+   APP SHELL — sidebar + main
+============================================================ */
+.app {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--bg-1);
+  border-right: 1px solid var(--border-1);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand {
+  padding: 18px 20px 22px;
+  border-bottom: 1px solid var(--border-1);
+}
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.brand-logo {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: grid; place-items: center;
+  color: var(--bg-0);
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+.brand-name {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.brand-tag {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: 38px;
+  margin-top: -2px;
+}
+
+.nav-section {
+  padding: 16px 12px 4px;
+}
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  text-transform: uppercase;
+  padding: 0 8px;
+  margin-bottom: 8px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--bg-2); color: var(--text-1); }
+.nav-item.active {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+.nav-item.active .nav-icon {
+  color: var(--accent);
+}
+.nav-icon {
+  width: 14px; height: 14px;
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { color: var(--text-2); }
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--border-1);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.foot-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+.foot-stat span:last-child { color: var(--text-2); }
+
+.theme-toggle {
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-1);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 11px;
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+  width: 100%;
+}
+.theme-toggle:hover { color: var(--text-1); border-color: var(--border-2); }
+
+/* ============================================================
+   MAIN AREA
+============================================================ */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-0);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border-1);
+  background: var(--bg-0);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.page-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.page-title .crumb {
+  color: var(--text-3);
+  font-weight: 500;
+  margin-right: 6px;
+}
+.topbar-spacer { flex: 1; }
+
+.filter-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.filter:hover { border-color: var(--border-2); }
+.filter label {
+  color: var(--text-3);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.filter input, .filter select {
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  min-width: 80px;
+}
+.filter input[type="date"] { color-scheme: dark; min-width: 110px; }
+:root[data-theme="light"] .filter input[type="date"] { color-scheme: light; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border-1);
+  background: var(--bg-1);
+  color: var(--text-1);
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover { border-color: var(--border-2); background: var(--bg-2); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-0);
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+.btn-ghost { background: transparent; }
+.btn-icon { padding: 7px; }
+
+/* ============================================================
+   CONTENT
+============================================================ */
+.content {
+  padding: 24px;
+  flex: 1;
+  overflow-x: hidden;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* ============================================================
+   EMPTY STATE — drag & drop
+============================================================ */
+.empty {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 24px;
+  min-height: calc(100vh - 60px);
+}
+.empty.active { display: flex; }
+.drop-zone {
+  border: 1.5px dashed var(--border-2);
+  border-radius: 10px;
+  padding: 56px 80px;
+  background: var(--bg-1);
+  transition: all 0.18s;
+  max-width: 560px;
+  width: 100%;
+  cursor: pointer;
+}
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-1));
+}
+.drop-icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 16px;
+  color: var(--text-3);
+}
+.drop-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+.drop-sub {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 20px;
+}
+.drop-formats {
+  margin-top: 20px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+.empty-hint {
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--text-3);
+  max-width: 500px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   KPI GRID
+============================================================ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.kpi {
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.kpi-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.kpi-dot.in { background: var(--in); }
+.kpi-dot.out { background: var(--out); }
+.kpi-dot.info { background: var(--info); }
+.kpi-dot.warn { background: var(--warn); }
+.kpi-dot.neutral { background: var(--text-3); }
+
+.kpi-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-unit {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 500;
+  margin-left: 4px;
+}
+.kpi-sub {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ============================================================
+   CARDS / PANELS
+============================================================ */
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.panel-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-1);
+}
+.panel-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+.panel-body {
+  padding: 16px;
+}
+.panel-body.tight { padding: 0; }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) { .grid-3 { grid-template-columns: 1fr; } }
+
+.chart {
+  width: 100%;
+  height: 320px;
+}
+.chart.tall { height: 380px; }
+.chart.short { height: 220px; }
+
+/* ============================================================
+   TABLES — Tabulator overrides + native lists
+============================================================ */
+.tab-container {
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.list {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.list-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border-1);
+  align-items: center;
+}
+.list-row:last-child { border-bottom: none; }
+.list-rank {
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: right;
+}
+.list-name {
+  color: var(--text-1);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-name-sub {
+  color: var(--text-3);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.list-val {
+  color: var(--text-1);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.list-val.in { color: var(--in); }
+.list-val.out { color: var(--out); }
+
+/* Tabulator color overrides */
+.tabulator {
+  background: var(--bg-1) !important;
+  border: none !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+}
+.tabulator-header {
+  background: var(--bg-2) !important;
+  border-bottom: 1px solid var(--border-1) !important;
+}
+.tabulator-col {
+  background: var(--bg-2) !important;
+  border-right: 1px solid var(--border-1) !important;
+  color: var(--text-2) !important;
+}
+.tabulator-col-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-2) !important;
+}
+.tabulator-row {
+  background: var(--bg-1) !important;
+  border-bottom: 1px solid var(--border-1) !important;
+  color: var(--text-1) !important;
+}
+.tabulator-row.tabulator-row-even { background: var(--bg-1) !important; }
+.tabulator-row:hover { background: var(--bg-2) !important; }
+.tabulator-cell {
+  border-right: 1px solid var(--border-1) !important;
+  color: var(--text-1) !important;
+  font-variant-numeric: tabular-nums;
+}
+.tabulator-cell.mono-cell { font-family: 'JetBrains Mono', monospace; }
+.tabulator-footer {
+  background: var(--bg-2) !important;
+  border-top: 1px solid var(--border-1) !important;
+  color: var(--text-2) !important;
+}
+.tabulator-paginator { color: var(--text-2) !important; }
+.tabulator-page {
+  background: var(--bg-1) !important;
+  border: 1px solid var(--border-1) !important;
+  color: var(--text-2) !important;
+}
+.tabulator-page.active {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--bg-0) !important;
+}
+.tabulator-header-filter input {
+  background: var(--bg-1) !important;
+  border: 1px solid var(--border-1) !important;
+  color: var(--text-1) !important;
+  border-radius: 4px;
+  padding: 4px 6px !important;
+}
+
+/* ============================================================
+   MISC
+============================================================ */
+.tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+.tag.in { background: color-mix(in srgb, var(--in) 14%, transparent); color: var(--in); }
+.tag.out { background: color-mix(in srgb, var(--out) 14%, transparent); color: var(--out); }
+.tag.neutral { background: var(--bg-3); color: var(--text-2); }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-1);
+  z-index: 1000;
+  display: none;
+  max-width: 340px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+.toast.show { display: block; animation: slideIn 0.2s ease; }
+.toast.error { border-left-color: var(--danger); }
+.toast.warn { border-left-color: var(--warn); }
+@keyframes slideIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.loading {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,13,18,0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  backdrop-filter: blur(4px);
+}
+.loading.show { display: flex; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 2.5px solid var(--border-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  margin-left: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-1);
+}
+
+/* Mobile sidebar */
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed;
+    left: -240px;
+    width: 232px;
+    z-index: 200;
+    transition: left 0.22s;
+    box-shadow: 8px 0 24px rgba(0,0,0,0.4);
+  }
+  .sidebar.open { left: 0; }
+  .topbar { padding: 12px 16px; }
+  .content { padding: 16px; }
+  .hamburger { display: inline-flex !important; }
+  .filter-group { display: none; }
+  .filter-group.mobile-show { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-1); border-top: 1px solid var(--border-1); padding: 12px; z-index: 100; }
+}
+.hamburger { display: none; }
+
+/* Mini sparkline canvas */
+.spark {
+  display: block;
+  margin-top: 8px;
+  width: 100%;
+  height: 26px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin: 4px 0 12px;
+  font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::before {
+  content: '';
+  width: 16px;
+  height: 1px;
+  background: var(--accent);
+}
+
+/* Recommendation card — signature element del Escalat */
+.reco {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--bg-1)) 0%, var(--bg-1) 65%);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-1));
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.reco::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.reco-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.reco-main {
+  font-size: 14px;
+  color: var(--text-1);
+  margin-bottom: 16px;
+  line-height: 1.55;
+}
+.reco-main b { color: var(--text-1); font-weight: 600; }
+.reco-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  padding-top: 14px;
+}
+@media (max-width: 720px) { .reco-stats { grid-template-columns: repeat(2, 1fr); } }
+.reco-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 4px;
+}
+.reco-stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.reco-stat-value.savings { color: var(--accent); }
+.reco-empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--text-3);
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     APP SHELL
+============================================================ -->
+<div class="app">
+
+  <!-- ====================================================
+       SIDEBAR
+  ==================================================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="brand-logo">S</div>
+        <div class="brand-name">StockFlow</div>
+      </div>
+      <div class="brand-tag">v1.0 · stock analytics</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Vistes</div>
+      <button class="nav-item active" data-view="overview">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        Overview
+      </button>
+      <button class="nav-item" data-view="articles">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Articles
+      </button>
+      <button class="nav-item" data-view="suppliers">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M21 3l-7 7"/><rect x="3" y="11" width="10" height="10" rx="1"/></svg>
+        Proveïdors
+      </button>
+      <button class="nav-item" data-view="customers">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h-5v-5"/><path d="M3 21l7-7"/><rect x="11" y="3" width="10" height="10" rx="1"/></svg>
+        Clients
+      </button>
+      <button class="nav-item" data-view="movements">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Moviments
+      </button>
+      <button class="nav-item" data-view="advanced">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+        Anàlisi avançat
+      </button>
+      <button class="nav-item" data-view="scale">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4v-4"/><path d="M8 16h4v-4"/><path d="M12 12h4V8"/><path d="M16 8h4V4"/></svg>
+        Escalat òptim
+      </button>
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="nav-label" style="padding:0; margin-bottom:8px;">Dades</div>
+      <div class="foot-stat"><span>Files</span><span id="stat-rows">—</span></div>
+      <div class="foot-stat"><span>Articles</span><span id="stat-articles">—</span></div>
+      <div class="foot-stat"><span>Proveïdors</span><span id="stat-suppliers">—</span></div>
+      <div class="foot-stat"><span>Clients</span><span id="stat-clients">—</span></div>
+      <div class="foot-stat"><span>Període</span><span id="stat-period">—</span></div>
+      <button class="theme-toggle" id="theme-toggle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <span id="theme-label">Tema clar</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ====================================================
+       MAIN
+  ==================================================== -->
+  <main class="main">
+    <header class="topbar">
+      <button class="btn btn-ghost btn-icon hamburger" id="hamburger">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="page-title">
+        <span class="crumb">StockFlow /</span>
+        <span id="page-title">Overview</span>
+      </div>
+
+      <div class="topbar-spacer"></div>
+
+      <div class="filter-group" id="filter-group">
+        <div class="filter">
+          <label>Des de</label>
+          <input type="date" id="f-date-from" />
+        </div>
+        <div class="filter">
+          <label>Fins a</label>
+          <input type="date" id="f-date-to" />
+        </div>
+        <div class="filter">
+          <label>Article</label>
+          <input list="dl-articles" id="f-article" placeholder="Tots" />
+          <datalist id="dl-articles"></datalist>
+        </div>
+        <div class="filter">
+          <label>Empresa</label>
+          <input list="dl-clients" id="f-client" placeholder="Tots" />
+          <datalist id="dl-clients"></datalist>
+        </div>
+        <div class="filter">
+          <label>Tipus</label>
+          <select id="f-tipus"><option value="">Tots</option></select>
+        </div>
+        <button class="btn btn-ghost" id="btn-reset" title="Reinicia filtres">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+      </div>
+
+      <button class="btn btn-primary" id="btn-import">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importa
+      </button>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" />
+    </header>
+
+    <div class="content" id="content">
+
+      <!-- ============================================
+           EMPTY STATE / DROP ZONE
+      ============================================ -->
+      <section class="empty active" id="empty">
+        <div class="drop-zone" id="drop-zone">
+          <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <div class="drop-title">Carrega un fitxer d'estoc</div>
+          <div class="drop-sub">Arrossega el teu Excel aquí o fes clic per seleccionar-lo</div>
+          <button class="btn btn-primary" id="empty-pick-btn">Seleccionar fitxer</button>
+          <div class="drop-formats">.xlsx · .xls · .csv</div>
+        </div>
+        <p class="empty-hint">
+          S'esperen les columnes: <span class="mono" style="color:var(--text-2)">Artículo, Descripcio Article, Data, Albara, Ln, Codi, Rao social, Tipus Mov., Lot, Preu, Dto1, Dto2, Entrades, Sortides, Saldo, POS</span>.
+          Tot el processament passa al teu navegador — cap dada surt de la teva màquina.
+        </p>
+      </section>
+
+      <!-- ============================================
+           VIEW: OVERVIEW
+      ============================================ -->
+      <section class="view" id="view-overview">
+        <div class="kpi-grid" id="kpi-grid"></div>
+
+        <div class="section-title">Activitat per articles</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Top 10 articles · Entrades</div>
+              <div class="panel-sub">unitats</div>
+            </div>
+            <div class="panel-body"><div class="chart" id="chart-top-in"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Top 10 articles · Sortides</div>
+              <div class="panel-sub">unitats</div>
+            </div>
+            <div class="panel-body"><div class="chart" id="chart-top-out"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Tendència temporal</div>
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-head">
+            <div class="panel-title">Evolució de moviments</div>
+            <div class="panel-sub">agregació mensual</div>
+          </div>
+          <div class="panel-body"><div class="chart tall" id="chart-timeline"></div></div>
+        </div>
+
+        <div class="section-title">Distribució per contrapartida</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Top proveïdors · Entrades</div>
+              <div class="panel-sub">% sobre total compres</div>
+            </div>
+            <div class="panel-body"><div class="chart" id="chart-suppliers-pie"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Top clients · Sortides</div>
+              <div class="panel-sub">% sobre total vendes</div>
+            </div>
+            <div class="panel-body"><div class="chart" id="chart-clients"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Tipus de moviment</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Recompte per tipus</div>
+              <div class="panel-sub">distribució d'operacions</div>
+            </div>
+            <div class="panel-body"><div class="chart" id="chart-tipus"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Balanç compres vs vendes</div>
+              <div class="panel-sub">evolució acumulada del valor</div>
+            </div>
+            <div class="panel-body"><div class="chart" id="chart-balance-cum"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           VIEW: ARTICLES
+      ============================================ -->
+      <section class="view" id="view-articles">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Top 10 entrades</div><div class="panel-sub">unitats</div></div>
+            <div class="panel-body tight"><div class="list" id="list-articles-in"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Top 10 sortides</div><div class="panel-sub">unitats</div></div>
+            <div class="panel-body tight"><div class="list" id="list-articles-out"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Treemap d'activitat</div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Articles per volum total</div>
+            <div class="panel-sub">entrades + sortides</div>
+          </div>
+          <div class="panel-body"><div class="chart tall" id="chart-articles-treemap"></div></div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           VIEW: SUPPLIERS (proveïdors — files amb entrades > 0)
+      ============================================ -->
+      <section class="view" id="view-suppliers">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Rànquing per volum d'entrades</div><div class="panel-sub">unitats subministrades</div></div>
+            <div class="panel-body tight"><div class="list" id="list-suppliers"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Compres per proveïdor</div><div class="panel-sub">top 15 · valor net</div></div>
+            <div class="panel-body"><div class="chart tall" id="chart-suppliers-bar"></div></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <div class="panel-head">
+            <div class="panel-title">Activitat per proveïdor</div>
+            <div class="panel-sub">desglossament complet · només entrades</div>
+          </div>
+          <div class="panel-body tight"><div id="table-suppliers"></div></div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           VIEW: CUSTOMERS (clients — files amb sortides > 0)
+      ============================================ -->
+      <section class="view" id="view-customers">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Rànquing per volum de sortides</div><div class="panel-sub">unitats venudes</div></div>
+            <div class="panel-body tight"><div class="list" id="list-customers"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Vendes per client</div><div class="panel-sub">top 15 · valor net</div></div>
+            <div class="panel-body"><div class="chart tall" id="chart-customers-bar"></div></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <div class="panel-head">
+            <div class="panel-title">Activitat per client</div>
+            <div class="panel-sub">desglossament complet · només sortides</div>
+          </div>
+          <div class="panel-body tight"><div id="table-customers"></div></div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           VIEW: MOVEMENTS
+      ============================================ -->
+      <section class="view" id="view-movements">
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-head">
+            <div class="panel-title">Moviments d'estoc</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <div class="filter">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="table-search" placeholder="Cerca global..." style="min-width:160px;" />
+              </div>
+              <button class="btn" id="btn-export-csv">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                CSV
+              </button>
+            </div>
+          </div>
+          <div class="panel-body tight"><div id="table-movements"></div></div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           VIEW: ADVANCED
+      ============================================ -->
+      <section class="view" id="view-advanced">
+        <div class="section-title">Anàlisi de freqüència</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Top 5 articles · freqüència d'entrades</div><div class="panel-sub">nº operacions</div></div>
+            <div class="panel-body tight"><div class="list" id="list-freq-in"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Top 5 articles · freqüència de sortides</div><div class="panel-sub">nº operacions</div></div>
+            <div class="panel-body tight"><div class="list" id="list-freq-out"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Rotació i consum</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Major rotació</div><div class="panel-sub">índex moviment</div></div>
+            <div class="panel-body tight"><div class="list" id="list-rotation"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Mapa de calor — activitat</div><div class="panel-sub">setmana × mes</div></div>
+            <div class="panel-body"><div class="chart" id="chart-heatmap"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Patrons de comportament</div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Balanç net per article</div>
+            <div class="panel-sub">entrades − sortides (top 20 amb major desviació)</div>
+          </div>
+          <div class="panel-body"><div class="chart tall" id="chart-balance"></div></div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           VIEW: SCALE — recomanador d'escalat per compra
+      ============================================ -->
+      <section class="view" id="view-scale">
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-body" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <div class="filter" style="flex:1; min-width:260px;">
+              <label>Article</label>
+              <input list="dl-articles-scale" id="scale-article" placeholder="Selecciona article..." />
+              <datalist id="dl-articles-scale"></datalist>
+            </div>
+            <div class="filter">
+              <label>Cobertura</label>
+              <input type="number" id="scale-months" min="1" max="24" step="1" value="3" style="width:46px;" />
+              <span style="color:var(--text-3); font-size:11px;">mesos</span>
+            </div>
+            <div class="filter">
+              <label>Mín. compres/tram</label>
+              <input type="number" id="scale-min-purchases" min="1" max="20" step="1" value="2" style="width:40px;" />
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-grid" id="scale-kpis" style="grid-template-columns: repeat(4, 1fr);"></div>
+
+        <div id="scale-recommendation"></div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Trams detectats</div>
+              <div class="panel-sub">proveïdor × descompte</div>
+            </div>
+            <div class="panel-body tight"><div id="scale-tiers"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Escalat visual</div>
+              <div class="panel-sub">preu unitari × quantitat</div>
+            </div>
+            <div class="panel-body"><div class="chart tall" id="chart-scale"></div></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading"><div class="spinner"></div><div class="loading-text" id="loading-text">Carregant...</div></div>
+
+<script>
+/* ============================================================
+   STOCKFLOW — Dashboard d'anàlisi de moviments d'estoc
+   ============================================================
+   Arquitectura en tres capes desacoblades:
+     • Data    — lectura d'Excel, normalització, persistència IndexedDB
+     • Logic   — filtres, KPIs, agregacions, mètriques derivades
+     • UI      — renderitzat, navegació, tema, esdeveniments
+   ============================================================ */
+
+'use strict';
+
+// ============================================================
+// UTILS — funcions transversals
+// ============================================================
+const Utils = {
+  // Format numèric estil ca-ES (1.234,56). Inteligent: K/M per a valors grans.
+  fmt(n, opts = {}) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    const { decimals = 0, compact = false, suffix = '' } = opts;
+    if (compact && Math.abs(n) >= 1000) {
+      const abs = Math.abs(n);
+      if (abs >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + 'M' + suffix;
+      if (abs >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + 'K' + suffix;
+    }
+    return n.toLocaleString('ca-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
+  },
+
+  fmtMoney(n) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    return n.toLocaleString('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
+  fmtDate(d) {
+    if (!d || !(d instanceof Date) || isNaN(d)) return '—';
+    return d.toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  },
+
+  fmtMonth(d) {
+    if (!d) return '—';
+    return d.toLocaleDateString('ca-ES', { month: 'short', year: '2-digit' });
+  },
+
+  debounce(fn, ms = 200) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  },
+
+  // Trunca text amb el·lipsi
+  truncate(s, max = 36) {
+    if (!s) return '';
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  },
+
+  // Toast no bloquejant
+  toast(msg, type = 'info', ms = 3000) {
+    const el = document.getElementById('toast');
+    el.className = 'toast show ' + (type === 'error' ? 'error' : type === 'warn' ? 'warn' : '');
+    el.textContent = msg;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), ms);
+  },
+
+  loading(text = 'Carregant...') {
+    document.getElementById('loading-text').textContent = text;
+    document.getElementById('loading').classList.add('show');
+  },
+
+  hideLoading() {
+    document.getElementById('loading').classList.remove('show');
+  },
+};
+
+// ============================================================
+// DATA LAYER — Excel → rows normalitzats + IndexedDB
+// ============================================================
+const Data = {
+  raw: [],          // files originals tal com vénen del XLSX
+  rows: [],         // files normalitzades amb tipus correctes
+  meta: {},         // metadades: rangs, columnes detectades
+
+  /**
+   * Llegeix un File (Excel o CSV) i retorna files normalitzades.
+   * Tot el processament passa al client — la dada no surt mai.
+   */
+  async loadFile(file) {
+    const buffer = await file.arrayBuffer();
+    // cellDates: true → SheetJS converteix els números serial d'Excel a Date
+    const wb = XLSX.read(buffer, { cellDates: true, dateNF: 'dd/mm/yyyy' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if (!ws) throw new Error('El fitxer no conté cap full');
+    const json = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+    if (!json.length) throw new Error('El full està buit');
+
+    this.raw = json;
+    this.rows = this._normalize(json);
+    this.meta = this._buildMeta(this.rows);
+    return this.rows;
+  },
+
+  /**
+   * Normalitza les files: tipus correctes, alias de columnes,
+   * camps derivats (preu net, valors monetaris).
+   *
+   * Escalable: per afegir una columna nova, només cal afegir-la
+   * al mapeig de COLS i (si cal) calcular el camp derivat.
+   */
+  _normalize(json) {
+    // Mapeig de noms de columna acceptats → clau interna
+    // Així si el nom canvia lleugerament en l'Excel, encara funciona.
+    const ALIASES = {
+      article:    ['Artículo', 'Articulo', 'Article', 'Codi article'],
+      descripcio: ['Descripcio Article', 'Descripció Article', 'Descripcion', 'Descripció', 'Descripcio'],
+      data:       ['Data', 'Fecha', 'Date'],
+      albara:     ['Albara', 'Albarà', 'Albaran'],
+      ln:         ['Ln', 'Linia', 'Línia', 'Line'],
+      codi:       ['Codi', 'Codi client', 'Codigo', 'Code'],
+      raoSocial:  ['Rao social', 'Raó social', 'Razon social', 'Razón social', 'Cliente', 'Client'],
+      tipusMov:   ['Tipus Mov.', 'Tipus Mov', 'Tipus moviment', 'Tipo Mov', 'Tipo movimiento'],
+      lot:        ['Lot', 'Lote', 'Batch'],
+      preu:       ['Preu', 'Precio', 'Price'],
+      dto1:       ['Dto1', 'Descompte1', 'Descuento1'],
+      dto2:       ['Dto2', 'Descompte2', 'Descuento2'],
+      entrades:   ['Entrades', 'Entradas', 'In'],
+      sortides:   ['Sortides', 'Salidas', 'Out'],
+      saldo:      ['Saldo', 'Balance', 'Stock'],
+      pos:        ['POS', 'Pos'],
+    };
+
+    // Construeix un mapeig una sola vegada: clau interna → nom real al fitxer
+    const sample = json[0];
+    const keyMap = {};
+    for (const [internal, names] of Object.entries(ALIASES)) {
+      const found = names.find(n => n in sample);
+      if (found) keyMap[internal] = found;
+    }
+
+    // Helper de conversió numèrica robusta
+    const num = v => {
+      if (v === null || v === undefined || v === '') return 0;
+      if (typeof v === 'number') return v;
+      const s = String(v).replace(/\s/g, '').replace(',', '.');
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const dateOf = v => {
+      if (!v) return null;
+      if (v instanceof Date) return isNaN(v) ? null : v;
+      if (typeof v === 'number') {
+        // Serial Excel: dies des de 1900-01-01
+        const d = new Date((v - 25569) * 86400 * 1000);
+        return isNaN(d) ? null : d;
+      }
+      const d = new Date(v);
+      return isNaN(d) ? null : d;
+    };
+
+    return json.map((r, idx) => {
+      const article    = r[keyMap.article] ?? '';
+      const descripcio = r[keyMap.descripcio] ?? '';
+      const dataD      = dateOf(r[keyMap.data]);
+      const codi       = r[keyMap.codi] ?? '';
+      const raoSocial  = r[keyMap.raoSocial] ?? '';
+      const tipusMov   = r[keyMap.tipusMov] ?? '';
+      const preu       = num(r[keyMap.preu]);
+      const dto1       = num(r[keyMap.dto1]);
+      const dto2       = num(r[keyMap.dto2]);
+      const entrades   = num(r[keyMap.entrades]);
+      const sortides   = num(r[keyMap.sortides]);
+
+      // Camps derivats
+      const preuNet = preu * (1 - dto1 / 100) * (1 - dto2 / 100);
+
+      return {
+        _id: idx,
+        article: String(article).trim(),
+        descripcio: String(descripcio).trim(),
+        data: dataD,
+        albara: r[keyMap.albara] ?? null,
+        ln: r[keyMap.ln] ?? null,
+        codi: String(codi).trim(),
+        raoSocial: String(raoSocial).trim(),
+        tipusMov: String(tipusMov).trim(),
+        lot: r[keyMap.lot] ?? null,
+        preu, dto1, dto2,
+        entrades, sortides,
+        saldo: num(r[keyMap.saldo]),
+        pos: r[keyMap.pos] ?? null,
+        // Derivats
+        preuNet,
+        valorEntrada: preuNet * entrades,
+        valorSortida: preuNet * sortides,
+        valorMoviment: preuNet * (entrades + sortides),
+      };
+    });
+  },
+
+  _buildMeta(rows) {
+    let minDate = null, maxDate = null;
+    const articles = new Set(), clients = new Set(), tipus = new Set();
+    for (const r of rows) {
+      if (r.data) {
+        if (!minDate || r.data < minDate) minDate = r.data;
+        if (!maxDate || r.data > maxDate) maxDate = r.data;
+      }
+      if (r.article) articles.add(r.article);
+      if (r.raoSocial) clients.add(r.raoSocial);
+      if (r.tipusMov) tipus.add(r.tipusMov);
+    }
+    return {
+      total: rows.length,
+      minDate, maxDate,
+      articles: [...articles].sort(),
+      clients: [...clients].sort(),
+      tipus: [...tipus].sort(),
+    };
+  },
+
+  // -- IndexedDB persistence --------------------------------------
+  DB_NAME: 'stockflow', STORE: 'datasets',
+
+  _openDB() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(this.DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(this.STORE);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  },
+
+  async persist() {
+    try {
+      const db = await this._openDB();
+      const tx = db.transaction(this.STORE, 'readwrite');
+      // Persistim només raw + timestamp — la normalització és barata
+      tx.objectStore(this.STORE).put({ raw: this.raw, ts: Date.now() }, 'current');
+      return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+    } catch (e) { console.warn('IndexedDB persist failed', e); }
+  },
+
+  async loadCached() {
+    try {
+      const db = await this._openDB();
+      return new Promise(res => {
+        const req = db.transaction(this.STORE).objectStore(this.STORE).get('current');
+        req.onsuccess = () => {
+          const v = req.result;
+          if (!v || !v.raw || !v.raw.length) return res(null);
+          this.raw = v.raw;
+          this.rows = this._normalize(v.raw);
+          this.meta = this._buildMeta(this.rows);
+          res({ rows: this.rows, ts: v.ts });
+        };
+        req.onerror = () => res(null);
+      });
+    } catch (e) { return null; }
+  },
+
+  async clearCache() {
+    try {
+      const db = await this._openDB();
+      db.transaction(this.STORE, 'readwrite').objectStore(this.STORE).delete('current');
+    } catch (e) {}
+  },
+};
+
+// ============================================================
+// LOGIC LAYER — filtres + agregacions + mètriques
+// Totes les funcions són pures: rows in → resultat out.
+// ============================================================
+const Logic = {
+  /**
+   * Filtra files. Cada filtre és opcional.
+   * Es retorna sempre un array nou — mai es muta l'entrada.
+   */
+  applyFilters(rows, f) {
+    const { dateFrom, dateTo, article, client, tipus } = f;
+    // Pre-càlcul de timestamps per evitar conversions dins del loop
+    const tFrom = dateFrom ? new Date(dateFrom).setHours(0,0,0,0) : null;
+    const tTo   = dateTo   ? new Date(dateTo).setHours(23,59,59,999) : null;
+    const aLow  = article ? article.toLowerCase() : null;
+    const cLow  = client  ? client.toLowerCase()  : null;
+
+    const out = [];
+    for (const r of rows) {
+      if (tFrom !== null && (!r.data || r.data.getTime() < tFrom)) continue;
+      if (tTo   !== null && (!r.data || r.data.getTime() > tTo))   continue;
+      if (aLow) {
+        // Permet cercar per codi o per descripció
+        const matchCode = r.article.toLowerCase().includes(aLow);
+        const matchDesc = r.descripcio.toLowerCase().includes(aLow);
+        if (!matchCode && !matchDesc) continue;
+      }
+      if (cLow) {
+        const matchName = r.raoSocial.toLowerCase().includes(cLow);
+        const matchCode = r.codi.toLowerCase().includes(cLow);
+        if (!matchName && !matchCode) continue;
+      }
+      if (tipus && r.tipusMov !== tipus) continue;
+      out.push(r);
+    }
+    return out;
+  },
+
+  /**
+   * KPIs principals. Una sola passada per O(n).
+   */
+  kpis(rows) {
+    let totalIn = 0, totalOut = 0, valStock = 0, valIn = 0, valOut = 0;
+    const articles = new Set(), suppliers = new Set(), customers = new Set();
+    for (const r of rows) {
+      totalIn  += r.entrades;
+      totalOut += r.sortides;
+      valIn    += r.valorEntrada;
+      valOut   += r.valorSortida;
+      if (r.article) articles.add(r.article);
+      if (r.raoSocial) {
+        if (r.entrades > 0) suppliers.add(r.raoSocial);
+        if (r.sortides > 0) customers.add(r.raoSocial);
+      }
+    }
+    valStock = valIn - valOut;
+    return {
+      totalIn, totalOut,
+      articles: articles.size,
+      suppliers: suppliers.size,
+      customers: customers.size,
+      valStock, valIn, valOut,
+      movements: rows.length,
+      netFlow: totalIn - totalOut,
+    };
+  },
+
+  // Top N articles per una mètrica (entrades, sortides, valor, freqüència)
+  topArticles(rows, field, n = 10) {
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.article) continue;
+      let cur = m.get(r.article);
+      if (!cur) {
+        cur = { article: r.article, desc: r.descripcio, qty: 0, count: 0 };
+        m.set(r.article, cur);
+      }
+      if (field === 'count') cur.count++;
+      else cur.qty += r[field] || 0;
+      if (!cur.desc && r.descripcio) cur.desc = r.descripcio;
+    }
+    const key = field === 'count' ? 'count' : 'qty';
+    return [...m.values()].sort((a, b) => b[key] - a[key]).slice(0, n);
+  },
+
+  // Articles per freqüència de moviments amb una quantitat > 0
+  topArticlesByFrequency(rows, field, n = 5) {
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.article || !r[field]) continue;
+      let cur = m.get(r.article);
+      if (!cur) {
+        cur = { article: r.article, desc: r.descripcio, count: 0, qty: 0 };
+        m.set(r.article, cur);
+      }
+      cur.count++;
+      cur.qty += r[field];
+      if (!cur.desc && r.descripcio) cur.desc = r.descripcio;
+    }
+    return [...m.values()].sort((a, b) => b.count - a.count).slice(0, n);
+  },
+
+  // Sèrie temporal agregada per granularitat (auto: dia/setmana/mes/any)
+  timeSeries(rows) {
+    if (!rows.length) return { granularity: 'month', series: [] };
+
+    // Decidim granularitat segons el rang
+    let min = Infinity, max = -Infinity;
+    for (const r of rows) {
+      if (!r.data) continue;
+      const t = r.data.getTime();
+      if (t < min) min = t;
+      if (t > max) max = t;
+    }
+    if (min === Infinity) return { granularity: 'month', series: [] };
+
+    const days = (max - min) / 86400000;
+    let granularity = 'month';
+    if (days <= 60) granularity = 'day';
+    else if (days <= 365) granularity = 'week';
+    else if (days <= 365 * 3) granularity = 'month';
+    else granularity = 'quarter';
+
+    const keyOf = d => {
+      if (granularity === 'day')    return d.toISOString().slice(0, 10);
+      if (granularity === 'week')   { const w = new Date(d); w.setDate(w.getDate() - w.getDay()); return w.toISOString().slice(0,10); }
+      if (granularity === 'month')  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (granularity === 'quarter')return `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;
+    };
+
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.data) continue;
+      const k = keyOf(r.data);
+      let cur = m.get(k);
+      if (!cur) { cur = { key: k, in: 0, out: 0, count: 0 }; m.set(k, cur); }
+      cur.in  += r.entrades;
+      cur.out += r.sortides;
+      cur.count++;
+    }
+    const series = [...m.values()].sort((a, b) => a.key.localeCompare(b.key));
+    return { granularity, series };
+  },
+
+  /**
+   * Proveïdors: només files amb entrades > 0.
+   * El mateix Rao social pot aparèixer com a proveïdor i com a client
+   * en diferents files; aquí només comptem la seva activitat com a proveïdor.
+   */
+  suppliersByVolume(rows, n = 20) {
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.raoSocial || r.entrades <= 0) continue;
+      let cur = m.get(r.raoSocial);
+      if (!cur) {
+        cur = { name: r.raoSocial, code: r.codi, qty: 0, count: 0, valor: 0 };
+        m.set(r.raoSocial, cur);
+      }
+      cur.qty   += r.entrades;
+      cur.valor += r.valorEntrada;
+      cur.count++;
+    }
+    return [...m.values()].sort((a, b) => b.qty - a.qty).slice(0, n);
+  },
+
+  /**
+   * Clients: només files amb sortides > 0.
+   */
+  customersByVolume(rows, n = 20) {
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.raoSocial || r.sortides <= 0) continue;
+      let cur = m.get(r.raoSocial);
+      if (!cur) {
+        cur = { name: r.raoSocial, code: r.codi, qty: 0, count: 0, valor: 0 };
+        m.set(r.raoSocial, cur);
+      }
+      cur.qty   += r.sortides;
+      cur.valor += r.valorSortida;
+      cur.count++;
+    }
+    return [...m.values()].sort((a, b) => b.qty - a.qty).slice(0, n);
+  },
+
+  /**
+   * Recompte d'empreses úniques separant per rol.
+   * Una empresa pot ser només proveïdor, només client, o tots dos (mixed).
+   */
+  partyCounts(rows) {
+    const sup = new Set(), cli = new Set();
+    for (const r of rows) {
+      if (!r.raoSocial) continue;
+      if (r.entrades > 0) sup.add(r.raoSocial);
+      if (r.sortides > 0) cli.add(r.raoSocial);
+    }
+    const mixed = [...sup].filter(x => cli.has(x)).length;
+    return { suppliers: sup.size, customers: cli.size, mixed };
+  },
+
+  /**
+   * Balanç acumulat de valor: compres (entrades × preu net) vs vendes (sortides × preu net).
+   * Útil per veure si l'empresa està comprant més del que ven en un període.
+   */
+  cumulativeBalance(rows) {
+    const sorted = [...rows].filter(r => r.data).sort((a, b) => a.data - b.data);
+    const ts = Logic.timeSeries(sorted);
+    // Reconstruïm valor per cada bucket
+    const keyOf = d => {
+      if (ts.granularity === 'day')     return d.toISOString().slice(0, 10);
+      if (ts.granularity === 'week')    { const w = new Date(d); w.setDate(w.getDate() - w.getDay()); return w.toISOString().slice(0,10); }
+      if (ts.granularity === 'month')   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (ts.granularity === 'quarter') return `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;
+    };
+    const m = new Map();
+    for (const r of sorted) {
+      const k = keyOf(r.data);
+      let cur = m.get(k);
+      if (!cur) { cur = { key: k, compraVal: 0, vendaVal: 0 }; m.set(k, cur); }
+      cur.compraVal += r.valorEntrada;
+      cur.vendaVal  += r.valorSortida;
+    }
+    let cumCompra = 0, cumVenda = 0;
+    const series = [...m.values()].sort((a, b) => a.key.localeCompare(b.key)).map(b => {
+      cumCompra += b.compraVal;
+      cumVenda  += b.vendaVal;
+      return { key: b.key, compra: cumCompra, venda: cumVenda };
+    });
+    return { granularity: ts.granularity, series };
+  },
+
+  // Articles amb major rotació: moltes operacions + alts volums
+  rotation(rows, n = 20) {
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.article) continue;
+      let cur = m.get(r.article);
+      if (!cur) { cur = { article: r.article, desc: r.descripcio, in: 0, out: 0, ops: 0 }; m.set(r.article, cur); }
+      cur.in  += r.entrades;
+      cur.out += r.sortides;
+      cur.ops++;
+      if (!cur.desc && r.descripcio) cur.desc = r.descripcio;
+    }
+    return [...m.values()]
+      .map(a => ({ ...a, total: a.in + a.out, rotation: (a.in + a.out) * Math.log10(a.ops + 1) }))
+      .sort((a, b) => b.rotation - a.rotation)
+      .slice(0, n);
+  },
+
+  // Balanç net per article (entrades − sortides), top desviació
+  balance(rows, n = 20) {
+    const m = new Map();
+    for (const r of rows) {
+      if (!r.article) continue;
+      let cur = m.get(r.article);
+      if (!cur) { cur = { article: r.article, desc: r.descripcio, in: 0, out: 0 }; m.set(r.article, cur); }
+      cur.in  += r.entrades;
+      cur.out += r.sortides;
+      if (!cur.desc && r.descripcio) cur.desc = r.descripcio;
+    }
+    return [...m.values()]
+      .map(a => ({ ...a, net: a.in - a.out, absnet: Math.abs(a.in - a.out) }))
+      .sort((a, b) => b.absnet - a.absnet)
+      .slice(0, n);
+  },
+
+  // Recompte per tipus de moviment
+  movTypes(rows) {
+    const m = new Map();
+    for (const r of rows) {
+      const k = r.tipusMov || '(sense tipus)';
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  },
+
+  // Heatmap: setmana de l'any × any-mes
+  heatmap(rows) {
+    const m = new Map();
+    const months = new Set(), wdays = ['Dl','Dt','Dc','Dj','Dv','Ds','Dg'];
+    for (const r of rows) {
+      if (!r.data) continue;
+      const month = `${r.data.getFullYear()}-${String(r.data.getMonth()+1).padStart(2,'0')}`;
+      const wday  = (r.data.getDay() + 6) % 7;  // 0 = dilluns
+      const key = `${month}|${wday}`;
+      m.set(key, (m.get(key) || 0) + r.entrades + r.sortides);
+      months.add(month);
+    }
+    const sortedMonths = [...months].sort();
+    const data = [];
+    sortedMonths.forEach((mo, mi) => {
+      wdays.forEach((_, wi) => {
+        const v = m.get(`${mo}|${wi}`) || 0;
+        data.push([mi, wi, v]);
+      });
+    });
+    return { months: sortedMonths, wdays, data };
+  },
+
+  /**
+   * ANÀLISI D'ESCALAT — detecta trams de descompte que els proveïdors
+   * estan aplicant realment a un article i recomana quina quantitat
+   * comprar segons el consum històric.
+   *
+   * Mètode:
+   *  1. Filtrem compres (entrades > 0) i sortides (sortides > 0) de l'article
+   *  2. Calculem consum mensual mitjà des de les sortides
+   *  3. Agrupem compres per (proveïdor, descompte total arrodonit a 0.5%):
+   *     això reflecteix els nivells de preu que aplica cada proveïdor
+   *  4. Per a cada tram: rang qty, qty mitjana, preu net més recent, cobertura
+   *  5. Recomanem el tram amb millor preu unitari que cobreixi
+   *     l'objectiu de mesos (o aproximi'l)
+   */
+  scaleAnalysis(rows, articleCode, opts = {}) {
+    const coverageTarget = opts.coverage || 3;     // mesos
+    const minPurchases   = opts.minPurchases || 2; // sota aquest llindar el tram es descarta
+
+    const articleRows = rows.filter(r => r.article === articleCode);
+    if (!articleRows.length) return null;
+
+    const purchases = articleRows.filter(r => r.entrades > 0);
+    const sales     = articleRows.filter(r => r.sortides > 0);
+    const desc      = articleRows[0]?.descripcio || '';
+
+    // Consum mensual mitjà — basat en el rang de dates de les sortides
+    let monthlyConsumption = 0;
+    if (sales.length) {
+      const totalSold = sales.reduce((s, r) => s + r.sortides, 0);
+      const datedSales = sales.filter(r => r.data);
+      if (datedSales.length >= 2) {
+        const tMin = Math.min(...datedSales.map(r => r.data.getTime()));
+        const tMax = Math.max(...datedSales.map(r => r.data.getTime()));
+        const months = Math.max(1, (tMax - tMin) / (1000 * 60 * 60 * 24 * 30.44));
+        monthlyConsumption = totalSold / months;
+      } else if (totalSold > 0) {
+        monthlyConsumption = totalSold;  // fallback: tot el consum cabuda 1 mes
+      }
+    }
+
+    // Agrupament per (proveïdor, descompte arrodonit a 0.5%)
+    const groups = new Map();
+    for (const p of purchases) {
+      const dtoTotal = (1 - (1 - p.dto1 / 100) * (1 - p.dto2 / 100)) * 100;
+      const dtoBucket = Math.round(dtoTotal * 2) / 2;  // 0.5% buckets
+      const key = `${p.raoSocial}|${dtoBucket}`;
+      let g = groups.get(key);
+      if (!g) {
+        g = {
+          proveidor: p.raoSocial,
+          proveidorCodi: p.codi,
+          dtoTotal: dtoBucket,
+          dto1Avg: 0, dto2Avg: 0,
+          compres: [],
+          qtyTotal: 0,
+          qtyMin: Infinity,
+          qtyMax: -Infinity,
+          latestDate: null,
+          latestPreuBase: 0,
+          latestPreuNet: 0,
+          valorTotal: 0,
+        };
+        groups.set(key, g);
+      }
+      g.compres.push(p);
+      g.qtyTotal += p.entrades;
+      g.valorTotal += p.valorEntrada;
+      g.dto1Avg += p.dto1;
+      g.dto2Avg += p.dto2;
+      if (p.entrades < g.qtyMin) g.qtyMin = p.entrades;
+      if (p.entrades > g.qtyMax) g.qtyMax = p.entrades;
+      // El "preu net actual" és el de la compra més recent del tram
+      if (!g.latestDate || (p.data && p.data > g.latestDate)) {
+        g.latestDate     = p.data;
+        g.latestPreuBase = p.preu;
+        g.latestPreuNet  = p.preuNet;
+      }
+    }
+
+    // Convertim a array de trams + filtrem trams amb poques compres (soroll)
+    let tiers = [...groups.values()]
+      .filter(g => g.compres.length >= minPurchases)
+      .map(g => ({
+        proveidor: g.proveidor,
+        proveidorCodi: g.proveidorCodi,
+        dtoTotal: g.dtoTotal,
+        dto1Avg: g.dto1Avg / g.compres.length,
+        dto2Avg: g.dto2Avg / g.compres.length,
+        qtyMin: g.qtyMin,
+        qtyMax: g.qtyMax,
+        qtyAvg: g.qtyTotal / g.compres.length,
+        qtyMedian: median(g.compres.map(c => c.entrades)),
+        qtyTotal: g.qtyTotal,
+        nCompres: g.compres.length,
+        preuBase: g.latestPreuBase,
+        preuNet: g.latestPreuNet,
+        latestDate: g.latestDate,
+        valorTotal: g.valorTotal,
+        coverageMonths: monthlyConsumption > 0 ? (g.qtyTotal / g.compres.length) / monthlyConsumption : null,
+      }))
+      .sort((a, b) => a.preuNet - b.preuNet);  // del més barat al més car
+
+    // Si no hi ha trams amb prou compres, retornem tots (afluixant minPurchases a 1)
+    if (!tiers.length && purchases.length) {
+      tiers = [...groups.values()].map(g => ({
+        proveidor: g.proveidor, proveidorCodi: g.proveidorCodi,
+        dtoTotal: g.dtoTotal,
+        dto1Avg: g.dto1Avg / g.compres.length, dto2Avg: g.dto2Avg / g.compres.length,
+        qtyMin: g.qtyMin, qtyMax: g.qtyMax,
+        qtyAvg: g.qtyTotal / g.compres.length,
+        qtyMedian: median(g.compres.map(c => c.entrades)),
+        qtyTotal: g.qtyTotal, nCompres: g.compres.length,
+        preuBase: g.latestPreuBase, preuNet: g.latestPreuNet,
+        latestDate: g.latestDate, valorTotal: g.valorTotal,
+        coverageMonths: monthlyConsumption > 0 ? (g.qtyTotal / g.compres.length) / monthlyConsumption : null,
+      })).sort((a, b) => a.preuNet - b.preuNet);
+    }
+
+    // Recomanació: tram amb millor preu que cobreixi la quantitat objectiu
+    let recommendation = null;
+    if (tiers.length && monthlyConsumption > 0) {
+      const targetQty = monthlyConsumption * coverageTarget;
+      // Candidats: trams on qtyMax cobreix el target (es pot fer una comanda d'aquesta mida)
+      const reachable = tiers.filter(t => t.qtyMax >= targetQty * 0.7);
+      let best;
+      if (reachable.length) {
+        // Entre els assolibles, el de millor preu
+        best = reachable.reduce((a, b) => a.preuNet < b.preuNet ? a : b);
+      } else {
+        // Cap proveïdor ven aquest volum històricament; recomanem el de millor preu
+        best = tiers[0];
+      }
+      // Quantitat suggerida: la més propera al target dins el rang del tram
+      const suggestedQty = Math.max(best.qtyMin, Math.min(best.qtyMax, Math.round(targetQty)));
+
+      // Estalvi vs el tram de pitjor preu (qty petites, sense descompte o amb el més baix)
+      const worst = tiers[tiers.length - 1];
+      const savingsPerUnit = worst.preuNet - best.preuNet;
+      const savingsPct = worst.preuNet > 0 ? (savingsPerUnit / worst.preuNet) * 100 : 0;
+      const savingsTotal = savingsPerUnit * suggestedQty;
+
+      recommendation = {
+        tier: best,
+        suggestedQty,
+        targetQty: Math.round(targetQty),
+        actualCoverage: monthlyConsumption > 0 ? suggestedQty / monthlyConsumption : null,
+        costTotal: suggestedQty * best.preuNet,
+        savingsPerUnit, savingsPct, savingsTotal,
+        worstPreuNet: worst.preuNet,
+        reachable: reachable.length > 0,
+      };
+    }
+
+    return {
+      article: articleCode,
+      desc,
+      totalPurchased: purchases.reduce((s, r) => s + r.entrades, 0),
+      totalSold: sales.reduce((s, r) => s + r.sortides, 0),
+      monthlyConsumption,
+      tiers,
+      purchases,  // pel scatter chart
+      recommendation,
+    };
+  },
+};
+
+// Helper estadístic — mediana
+function median(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+}
+
+// ============================================================
+// UI LAYER — render + esdeveniments + tema
+// ============================================================
+const UI = {
+  view: 'overview',
+  filters: { dateFrom: null, dateTo: null, article: null, client: null, tipus: null },
+  charts: {},
+  table: null,
+  customersTable: null,
+  suppliersTable: null,
+
+  // Obté l'última versió de files després d'aplicar filtres
+  filtered() { return Logic.applyFilters(Data.rows, this.filters); },
+
+  // -- Theme ---------------------------------------------------
+  initTheme() {
+    const saved = localStorage.getItem('stockflow-theme') || 'dark';
+    document.documentElement.dataset.theme = saved;
+    this.updateThemeLabel();
+  },
+
+  toggleTheme() {
+    const cur = document.documentElement.dataset.theme;
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('stockflow-theme', next);
+    this.updateThemeLabel();
+    // Re-renderitzem els gràfics per agafar els nous colors
+    if (Data.rows.length) this.render();
+  },
+
+  updateThemeLabel() {
+    const cur = document.documentElement.dataset.theme;
+    document.getElementById('theme-label').textContent = cur === 'dark' ? 'Tema clar' : 'Tema fosc';
+  },
+
+  // -- Colors --------------------------------------------------
+  // Llegim del CSS perquè canviï automàticament amb el tema
+  colors() {
+    const s = getComputedStyle(document.documentElement);
+    return {
+      text1: s.getPropertyValue('--text-1').trim(),
+      text2: s.getPropertyValue('--text-2').trim(),
+      text3: s.getPropertyValue('--text-3').trim(),
+      bg1: s.getPropertyValue('--bg-1').trim(),
+      bg2: s.getPropertyValue('--bg-2').trim(),
+      border: s.getPropertyValue('--border-1').trim(),
+      accent: s.getPropertyValue('--accent').trim(),
+      in: s.getPropertyValue('--in').trim(),
+      out: s.getPropertyValue('--out').trim(),
+      info: s.getPropertyValue('--info').trim(),
+      warn: s.getPropertyValue('--warn').trim(),
+      grid: s.getPropertyValue('--chart-grid').trim(),
+      axis: s.getPropertyValue('--chart-axis').trim(),
+    };
+  },
+
+  baseChartOpts() {
+    const c = this.colors();
+    return {
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: c.text2 },
+      tooltip: {
+        backgroundColor: c.bg1,
+        borderColor: c.border,
+        borderWidth: 1,
+        textStyle: { color: c.text1, fontSize: 12 },
+        extraCssText: 'box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-radius: 6px;',
+      },
+    };
+  },
+
+  // -- Navigation ---------------------------------------------
+  navigate(view) {
+    this.view = view;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById('view-' + view);
+    if (target) target.classList.add('active');
+    document.getElementById('page-title').textContent = ({
+      overview:  'Overview',
+      articles:  'Articles',
+      suppliers: 'Proveïdors',
+      customers: 'Clients',
+      movements: 'Moviments',
+      advanced:  'Anàlisi avançat',
+      scale:     'Escalat òptim',
+    })[view] || view;
+    // Tanca sidebar mòbil
+    document.getElementById('sidebar').classList.remove('open');
+    // Trigger redimensionat de gràfics (necessari quan canvies de pestanya)
+    setTimeout(() => Object.values(this.charts).forEach(c => c && c.resize && c.resize()), 50);
+    // Renderitza la vista específica si cal
+    this.renderView();
+  },
+
+  // -- Show app vs empty state ---------------------------------
+  showApp() {
+    document.getElementById('empty').classList.remove('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + this.view));
+  },
+
+  showEmpty() {
+    document.getElementById('empty').classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  },
+
+  // -- Sidebar stats -------------------------------------------
+  updateSidebarStats() {
+    const m = Data.meta;
+    const pc = Logic.partyCounts(Data.rows);
+    document.getElementById('stat-rows').textContent = Utils.fmt(m.total);
+    document.getElementById('stat-articles').textContent = Utils.fmt(m.articles.length);
+    document.getElementById('stat-suppliers').textContent = Utils.fmt(pc.suppliers);
+    document.getElementById('stat-clients').textContent = Utils.fmt(pc.customers);
+    if (m.minDate && m.maxDate) {
+      const sameYear = m.minDate.getFullYear() === m.maxDate.getFullYear();
+      document.getElementById('stat-period').textContent =
+        sameYear ? m.minDate.getFullYear() : `${m.minDate.getFullYear()}–${m.maxDate.getFullYear()}`;
+    }
+  },
+
+  // -- Filter UI ----------------------------------------------
+  populateFilterOptions() {
+    const m = Data.meta;
+    const dlA = document.getElementById('dl-articles');
+    dlA.innerHTML = m.articles.slice(0, 1000).map(a => `<option value="${a}"></option>`).join('');
+    const dlC = document.getElementById('dl-clients');
+    dlC.innerHTML = m.clients.slice(0, 1000).map(c => `<option value="${c}"></option>`).join('');
+    const selT = document.getElementById('f-tipus');
+    selT.innerHTML = '<option value="">Tots</option>' + m.tipus.map(t => `<option value="${t}">${t}</option>`).join('');
+    if (m.minDate) document.getElementById('f-date-from').min = m.minDate.toISOString().slice(0,10);
+    if (m.maxDate) document.getElementById('f-date-to').max = m.maxDate.toISOString().slice(0,10);
+  },
+
+  readFilters() {
+    return {
+      dateFrom: document.getElementById('f-date-from').value || null,
+      dateTo:   document.getElementById('f-date-to').value || null,
+      article:  document.getElementById('f-article').value.trim() || null,
+      client:   document.getElementById('f-client').value.trim() || null,
+      tipus:    document.getElementById('f-tipus').value || null,
+    };
+  },
+
+  resetFilters() {
+    document.getElementById('f-date-from').value = '';
+    document.getElementById('f-date-to').value = '';
+    document.getElementById('f-article').value = '';
+    document.getElementById('f-client').value = '';
+    document.getElementById('f-tipus').value = '';
+    this.filters = { dateFrom: null, dateTo: null, article: null, client: null, tipus: null };
+    this.render();
+  },
+
+  // -- Render orchestrator -------------------------------------
+  render() {
+    this.filters = this.readFilters();
+    const rows = this.filtered();
+    this.renderKPIs(rows);
+    this.renderView(rows);
+  },
+
+  renderView(rowsOpt) {
+    const rows = rowsOpt || this.filtered();
+    switch (this.view) {
+      case 'overview':  this.renderOverview(rows); break;
+      case 'articles':  this.renderArticles(rows); break;
+      case 'suppliers': this.renderSuppliers(rows); break;
+      case 'customers': this.renderCustomers(rows); break;
+      case 'movements': this.renderMovements(rows); break;
+      case 'advanced':  this.renderAdvanced(rows); break;
+      case 'scale':     this.renderScale(rows); break;
+    }
+  },
+
+  // -- KPIs ----------------------------------------------------
+  renderKPIs(rows) {
+    const k = Logic.kpis(rows);
+    const grid = document.getElementById('kpi-grid');
+    const cards = [
+      { dot: 'in',      label: 'Compres (entrades)', value: Utils.fmt(k.totalIn, { compact: true }), sub: `${Utils.fmt(k.totalIn)} u. · ${k.suppliers} proveïdors` },
+      { dot: 'out',     label: 'Vendes (sortides)',  value: Utils.fmt(k.totalOut, { compact: true }), sub: `${Utils.fmt(k.totalOut)} u. · ${k.customers} clients` },
+      { dot: 'neutral', label: 'Articles únics',     value: Utils.fmt(k.articles), sub: `${k.movements ? (k.movements/Math.max(1,k.articles)).toFixed(1) : '0'} mov./article` },
+      { dot: 'info',    label: 'Valor compres',      value: Utils.fmt(k.valIn, { compact: true }), sub: `${Utils.fmtMoney(k.valIn)}`, isMoney: true },
+      { dot: 'warn',    label: 'Valor vendes',       value: Utils.fmt(k.valOut, { compact: true }), sub: `${Utils.fmtMoney(k.valOut)}`, isMoney: true },
+      { dot: 'neutral', label: 'Total moviments',    value: Utils.fmt(k.movements, { compact: true }), sub: `${Utils.fmt(k.movements)} files` },
+    ];
+    grid.innerHTML = cards.map(c => `
+      <div class="kpi">
+        <div class="kpi-label"><span class="kpi-dot ${c.dot}"></span>${c.label}</div>
+        <div class="kpi-value">${c.value}${c.isMoney ? '<span class="kpi-unit"> €</span>' : ''}</div>
+        <div class="kpi-sub">${c.sub}</div>
+      </div>
+    `).join('');
+  },
+
+  // -- Helpers per gràfics -------------------------------------
+  ensureChart(id) {
+    if (this.charts[id]) {
+      // Si ha canviat el tema, l'eliminem i recreem
+      this.charts[id].dispose();
+    }
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const chart = echarts.init(el, null, { renderer: 'canvas' });
+    this.charts[id] = chart;
+    return chart;
+  },
+
+  // -- OVERVIEW ------------------------------------------------
+  renderOverview(rows) {
+    const c = this.colors();
+
+    // Top 10 entrades
+    const topIn = Logic.topArticles(rows, 'entrades', 10);
+    this.ensureChart('chart-top-in').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 12, bottom: 12, containLabel: true },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      yAxis: {
+        type: 'category',
+        data: topIn.map(t => Utils.truncate(t.desc || t.article, 28)).reverse(),
+        axisLabel: { color: c.text2, fontSize: 11 },
+        axisLine: { show: false }, axisTick: { show: false }
+      },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis', formatter: p => {
+        const item = topIn[topIn.length - 1 - p[0].dataIndex];
+        return `<b>${item.desc || item.article}</b><br/><span style="color:${c.text3}">${item.article}</span><br/>${Utils.fmt(item.qty)} u.`;
+      } },
+      series: [{ type: 'bar', data: topIn.map(t => t.qty).reverse(), itemStyle: { color: c.in, borderRadius: [0, 3, 3, 0] }, barWidth: 14 }],
+    });
+
+    // Top 10 sortides
+    const topOut = Logic.topArticles(rows, 'sortides', 10);
+    this.ensureChart('chart-top-out').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 12, bottom: 12, containLabel: true },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      yAxis: {
+        type: 'category',
+        data: topOut.map(t => Utils.truncate(t.desc || t.article, 28)).reverse(),
+        axisLabel: { color: c.text2, fontSize: 11 },
+        axisLine: { show: false }, axisTick: { show: false }
+      },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis', formatter: p => {
+        const item = topOut[topOut.length - 1 - p[0].dataIndex];
+        return `<b>${item.desc || item.article}</b><br/><span style="color:${c.text3}">${item.article}</span><br/>${Utils.fmt(item.qty)} u.`;
+      } },
+      series: [{ type: 'bar', data: topOut.map(t => t.qty).reverse(), itemStyle: { color: c.out, borderRadius: [0, 3, 3, 0] }, barWidth: 14 }],
+    });
+
+    // Temporal evolution
+    const ts = Logic.timeSeries(rows);
+    const labelOf = k => {
+      if (ts.granularity === 'day' || ts.granularity === 'week') {
+        const d = new Date(k); return d.toLocaleDateString('ca-ES', { day: '2-digit', month: 'short' });
+      }
+      if (ts.granularity === 'month') {
+        const [y, m] = k.split('-'); return new Date(+y, +m-1, 1).toLocaleDateString('ca-ES', { month: 'short', year: '2-digit' });
+      }
+      return k;
+    };
+
+    this.ensureChart('chart-timeline').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 16, top: 32, bottom: 32, containLabel: true },
+      legend: { textStyle: { color: c.text2, fontSize: 11 }, top: 4, itemWidth: 14, itemHeight: 8 },
+      xAxis: { type: 'category', data: ts.series.map(s => labelOf(s.key)), axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { lineStyle: { color: c.axis } }, axisTick: { show: false } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis' },
+      series: [
+        { name: 'Entrades', type: 'line', data: ts.series.map(s => s.in), smooth: 0.3, symbol: 'circle', symbolSize: 5,
+          itemStyle: { color: c.in }, lineStyle: { color: c.in, width: 2 },
+          areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: c.in + '40' }, { offset: 1, color: c.in + '00' }] } } },
+        { name: 'Sortides', type: 'line', data: ts.series.map(s => s.out), smooth: 0.3, symbol: 'circle', symbolSize: 5,
+          itemStyle: { color: c.out }, lineStyle: { color: c.out, width: 2 },
+          areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: c.out + '40' }, { offset: 1, color: c.out + '00' }] } } },
+      ],
+    });
+
+    // Donut: top proveïdors (entrades)
+    const suppliers = Logic.suppliersByVolume(rows, 8);
+    const palette = [c.accent, c.info, c.out, c.warn, '#a78bfa', '#94e2d5', '#f5b7b1', '#7d8590'];
+    this.ensureChart('chart-suppliers-pie').setOption({
+      ...this.baseChartOpts(),
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'item', formatter: p => `<b>${p.name}</b><br/>${Utils.fmt(p.value)} u. (${p.percent}%)` },
+      legend: { type: 'scroll', orient: 'vertical', right: 8, top: 'middle', textStyle: { color: c.text2, fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
+      series: [{
+        type: 'pie', radius: ['45%', '70%'], center: ['30%', '50%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderColor: c.bg1, borderWidth: 2 },
+        label: { show: false }, labelLine: { show: false },
+        data: suppliers.map((s, i) => ({ value: s.qty, name: Utils.truncate(s.name, 22), itemStyle: { color: palette[i % palette.length] } })),
+      }],
+    });
+
+    // Donut: top clients (sortides)
+    const customers = Logic.customersByVolume(rows, 8);
+    this.ensureChart('chart-clients').setOption({
+      ...this.baseChartOpts(),
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'item', formatter: p => `<b>${p.name}</b><br/>${Utils.fmt(p.value)} u. (${p.percent}%)` },
+      legend: { type: 'scroll', orient: 'vertical', right: 8, top: 'middle', textStyle: { color: c.text2, fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
+      series: [{
+        type: 'pie', radius: ['45%', '70%'], center: ['30%', '50%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderColor: c.bg1, borderWidth: 2 },
+        label: { show: false }, labelLine: { show: false },
+        data: customers.map((cu, i) => ({ value: cu.qty, name: Utils.truncate(cu.name, 22), itemStyle: { color: palette[i % palette.length] } })),
+      }],
+    });
+
+    // Tipus de moviment
+    const tipus = Logic.movTypes(rows).slice(0, 10);
+    this.ensureChart('chart-tipus').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 12, bottom: 12, containLabel: true },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      yAxis: { type: 'category', data: tipus.map(t => t.name).reverse(), axisLabel: { color: c.text2, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis' },
+      series: [{ type: 'bar', data: tipus.map(t => t.count).reverse(), itemStyle: { color: c.accent, borderRadius: [0, 3, 3, 0] }, barWidth: 14 }],
+    });
+
+    // Balanç acumulat de compres vs vendes (valor net)
+    const cb = Logic.cumulativeBalance(rows);
+    const labelOfCb = k => {
+      if (cb.granularity === 'day' || cb.granularity === 'week') return new Date(k).toLocaleDateString('ca-ES', { day: '2-digit', month: 'short' });
+      if (cb.granularity === 'month') { const [y, m] = k.split('-'); return new Date(+y, +m-1, 1).toLocaleDateString('ca-ES', { month: 'short', year: '2-digit' }); }
+      return k;
+    };
+    this.ensureChart('chart-balance-cum').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 16, top: 32, bottom: 24, containLabel: true },
+      legend: { textStyle: { color: c.text2, fontSize: 11 }, top: 4, itemWidth: 14, itemHeight: 8 },
+      xAxis: { type: 'category', data: cb.series.map(s => labelOfCb(s.key)), axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { lineStyle: { color: c.axis } }, axisTick: { show: false } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11, formatter: v => Utils.fmt(v, { compact: true }) }, axisLine: { show: false }, axisTick: { show: false } },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis', formatter: p => {
+        let html = `<b>${p[0].axisValue}</b>`;
+        p.forEach(s => { html += `<br/><span style="color:${s.color}">●</span> ${s.seriesName}: <b>${Utils.fmtMoney(s.value)}</b>`; });
+        return html;
+      } },
+      series: [
+        { name: 'Compres acumulades', type: 'line', data: cb.series.map(s => +s.compra.toFixed(2)), smooth: 0.2, symbol: 'none',
+          lineStyle: { color: c.in, width: 2 }, itemStyle: { color: c.in } },
+        { name: 'Vendes acumulades', type: 'line', data: cb.series.map(s => +s.venda.toFixed(2)), smooth: 0.2, symbol: 'none',
+          lineStyle: { color: c.out, width: 2 }, itemStyle: { color: c.out } },
+      ],
+    });
+  },
+
+  // -- ARTICLES ------------------------------------------------
+  renderArticles(rows) {
+    const c = this.colors();
+    const topIn  = Logic.topArticles(rows, 'entrades', 10);
+    const topOut = Logic.topArticles(rows, 'sortides', 10);
+
+    document.getElementById('list-articles-in').innerHTML = topIn.map((t, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(t.desc || t.article, 42)}</div>
+          <div class="list-name-sub mono">${t.article}</div>
+        </div>
+        <div class="list-val in">${Utils.fmt(t.qty)}</div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    document.getElementById('list-articles-out').innerHTML = topOut.map((t, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(t.desc || t.article, 42)}</div>
+          <div class="list-name-sub mono">${t.article}</div>
+        </div>
+        <div class="list-val out">${Utils.fmt(t.qty)}</div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    // Treemap
+    const all = Logic.topArticles(rows, 'entrades', 50).map(a => ({ ...a, _key: a.article }));
+    const allOut = Logic.topArticles(rows, 'sortides', 50);
+    const merged = new Map();
+    all.forEach(a => merged.set(a.article, { name: Utils.truncate(a.desc || a.article, 28), code: a.article, value: a.qty }));
+    allOut.forEach(a => {
+      const cur = merged.get(a.article);
+      if (cur) cur.value += a.qty;
+      else merged.set(a.article, { name: Utils.truncate(a.desc || a.article, 28), code: a.article, value: a.qty });
+    });
+    const data = [...merged.values()].sort((a, b) => b.value - a.value).slice(0, 50);
+
+    this.ensureChart('chart-articles-treemap').setOption({
+      ...this.baseChartOpts(),
+      tooltip: { ...this.baseChartOpts().tooltip, formatter: p => `<b>${p.data.name}</b><br/><span style="color:${c.text3}">${p.data.code}</span><br/>${Utils.fmt(p.value)} u.` },
+      series: [{
+        type: 'treemap',
+        roam: false, nodeClick: false, breadcrumb: { show: false },
+        data,
+        leafDepth: 1,
+        itemStyle: { borderColor: c.bg1, borderWidth: 2, gapWidth: 2 },
+        levels: [{ colorMappingBy: 'value', color: [c.accent + '40', c.accent, c.in] }],
+        label: { fontSize: 11, color: c.text1, fontFamily: 'Inter', formatter: p => p.data.name },
+      }],
+    });
+  },
+
+  // -- SUPPLIERS (proveïdors — entrades) -----------------------
+  renderSuppliers(rows) {
+    const c = this.colors();
+    const all = Logic.suppliersByVolume(rows, 500);
+    const top = all.slice(0, 10);
+
+    document.getElementById('list-suppliers').innerHTML = top.map((s, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(s.name, 36)}</div>
+          <div class="list-name-sub mono">${s.code || '—'} · ${s.count} entrades</div>
+        </div>
+        <div class="list-val in">${Utils.fmt(s.qty)}</div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    // Bar chart: top 15 proveïdors per valor de compra
+    const top15 = all.slice(0, 15);
+    this.ensureChart('chart-suppliers-bar').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 16, bottom: 12, containLabel: true },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis', formatter: p => {
+        const item = top15[top15.length - 1 - p[0].dataIndex];
+        return `<b>${item.name}</b><br/><span style="color:${c.text3}">${item.code || '—'}</span><br/>${Utils.fmt(item.qty)} u. · <b>${Utils.fmtMoney(item.valor)}</b>`;
+      } },
+      yAxis: { type: 'category', data: top15.map(s => Utils.truncate(s.name, 26)).reverse(), axisLabel: { color: c.text2, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11, formatter: v => Utils.fmt(v, { compact: true }) }, axisLine: { show: false }, axisTick: { show: false } },
+      series: [{ type: 'bar', data: top15.map(s => +s.valor.toFixed(2)).reverse(), itemStyle: { color: c.in, borderRadius: [0, 3, 3, 0] }, barWidth: 14 }],
+    });
+
+    // Tabulator de proveïdors
+    if (this.suppliersTable) this.suppliersTable.destroy();
+    this.suppliersTable = new Tabulator('#table-suppliers', {
+      data: all,
+      layout: 'fitColumns',
+      pagination: 'local',
+      paginationSize: 15,
+      paginationSizeSelector: [10, 15, 25, 50],
+      height: 460,
+      reactiveData: false,
+      columns: [
+        { title: '#', formatter: 'rownum', width: 50, hozAlign: 'right', cssClass: 'mono-cell', headerSort: false },
+        { title: 'Codi', field: 'code', width: 110, cssClass: 'mono-cell' },
+        { title: 'Proveïdor', field: 'name', minWidth: 220 },
+        { title: 'Unitats subministrades', field: 'qty', hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmt(cell.getValue()), sorter: 'number' },
+        { title: 'Operacions', field: 'count', hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmt(cell.getValue()), sorter: 'number' },
+        { title: 'Valor compra (€)', field: 'valor', hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmtMoney(cell.getValue()), sorter: 'number' },
+      ],
+      initialSort: [{ column: 'qty', dir: 'desc' }],
+    });
+  },
+
+  // -- CUSTOMERS (clients — sortides) --------------------------
+  renderCustomers(rows) {
+    const c = this.colors();
+    const all = Logic.customersByVolume(rows, 500);
+    const top = all.slice(0, 10);
+
+    document.getElementById('list-customers').innerHTML = top.map((cu, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(cu.name, 36)}</div>
+          <div class="list-name-sub mono">${cu.code || '—'} · ${cu.count} sortides</div>
+        </div>
+        <div class="list-val out">${Utils.fmt(cu.qty)}</div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    // Bar chart: top 15 clients per valor de venda
+    const top15 = all.slice(0, 15);
+    this.ensureChart('chart-customers-bar').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 16, bottom: 12, containLabel: true },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis', formatter: p => {
+        const item = top15[top15.length - 1 - p[0].dataIndex];
+        return `<b>${item.name}</b><br/><span style="color:${c.text3}">${item.code || '—'}</span><br/>${Utils.fmt(item.qty)} u. · <b>${Utils.fmtMoney(item.valor)}</b>`;
+      } },
+      yAxis: { type: 'category', data: top15.map(cu => Utils.truncate(cu.name, 26)).reverse(), axisLabel: { color: c.text2, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11, formatter: v => Utils.fmt(v, { compact: true }) }, axisLine: { show: false }, axisTick: { show: false } },
+      series: [{ type: 'bar', data: top15.map(cu => +cu.valor.toFixed(2)).reverse(), itemStyle: { color: c.out, borderRadius: [0, 3, 3, 0] }, barWidth: 14 }],
+    });
+
+    // Tabulator de clients
+    if (this.customersTable) this.customersTable.destroy();
+    this.customersTable = new Tabulator('#table-customers', {
+      data: all,
+      layout: 'fitColumns',
+      pagination: 'local',
+      paginationSize: 15,
+      paginationSizeSelector: [10, 15, 25, 50],
+      height: 460,
+      reactiveData: false,
+      columns: [
+        { title: '#', formatter: 'rownum', width: 50, hozAlign: 'right', cssClass: 'mono-cell', headerSort: false },
+        { title: 'Codi', field: 'code', width: 110, cssClass: 'mono-cell' },
+        { title: 'Client', field: 'name', minWidth: 220 },
+        { title: 'Unitats venudes', field: 'qty', hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmt(cell.getValue()), sorter: 'number' },
+        { title: 'Operacions', field: 'count', hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmt(cell.getValue()), sorter: 'number' },
+        { title: 'Valor venda (€)', field: 'valor', hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmtMoney(cell.getValue()), sorter: 'number' },
+      ],
+      initialSort: [{ column: 'qty', dir: 'desc' }],
+    });
+  },
+
+  // -- MOVEMENTS -----------------------------------------------
+  renderMovements(rows) {
+    if (this.table) this.table.destroy();
+
+    this.table = new Tabulator('#table-movements', {
+      data: rows,
+      layout: 'fitDataStretch',
+      pagination: 'local',
+      paginationSize: 50,
+      paginationSizeSelector: [25, 50, 100, 250, 500],
+      height: 'calc(100vh - 220px)',
+      virtualDom: true,
+      reactiveData: false,
+      columns: [
+        { title: 'Data', field: 'data', sorter: 'datetime', width: 110, cssClass: 'mono-cell', formatter: cell => Utils.fmtDate(cell.getValue()), headerFilter: 'input' },
+        { title: 'Article', field: 'article', width: 110, cssClass: 'mono-cell', headerFilter: 'input' },
+        { title: 'Descripció', field: 'descripcio', minWidth: 220, widthGrow: 2, headerFilter: 'input' },
+        { title: 'Codi', field: 'codi', width: 90, cssClass: 'mono-cell', headerFilter: 'input' },
+        { title: 'Client', field: 'raoSocial', minWidth: 180, widthGrow: 1.5, headerFilter: 'input' },
+        { title: 'Tipus', field: 'tipusMov', width: 80, headerFilter: 'input',
+          formatter: cell => {
+            const v = cell.getValue();
+            if (!v) return '';
+            return `<span class="tag neutral">${v}</span>`;
+          } },
+        { title: 'Albara', field: 'albara', width: 90, cssClass: 'mono-cell' },
+        { title: 'Lot', field: 'lot', width: 90, cssClass: 'mono-cell' },
+        { title: 'Preu', field: 'preu', width: 90, hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmtMoney(cell.getValue()), sorter: 'number' },
+        { title: 'Dto1', field: 'dto1', width: 70, hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => cell.getValue() ? cell.getValue() + '%' : '—', sorter: 'number' },
+        { title: 'Dto2', field: 'dto2', width: 70, hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => cell.getValue() ? cell.getValue() + '%' : '—', sorter: 'number' },
+        { title: 'Entrades', field: 'entrades', width: 90, hozAlign: 'right', cssClass: 'mono-cell',
+          formatter: cell => cell.getValue() ? `<span style="color:var(--in)">${Utils.fmt(cell.getValue())}</span>` : '<span style="color:var(--text-3)">—</span>',
+          sorter: 'number', headerFilter: 'number', headerFilterFunc: '>=' },
+        { title: 'Sortides', field: 'sortides', width: 90, hozAlign: 'right', cssClass: 'mono-cell',
+          formatter: cell => cell.getValue() ? `<span style="color:var(--out)">${Utils.fmt(cell.getValue())}</span>` : '<span style="color:var(--text-3)">—</span>',
+          sorter: 'number', headerFilter: 'number', headerFilterFunc: '>=' },
+        { title: 'Saldo', field: 'saldo', width: 90, hozAlign: 'right', cssClass: 'mono-cell', formatter: cell => Utils.fmt(cell.getValue()), sorter: 'number' },
+      ],
+      initialSort: [{ column: 'data', dir: 'desc' }],
+    });
+  },
+
+  // -- ADVANCED ------------------------------------------------
+  renderAdvanced(rows) {
+    const c = this.colors();
+
+    // Freqüència entrades
+    const freqIn = Logic.topArticlesByFrequency(rows, 'entrades', 5);
+    document.getElementById('list-freq-in').innerHTML = freqIn.map((t, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(t.desc || t.article, 42)}</div>
+          <div class="list-name-sub mono">${t.article} · ${Utils.fmt(t.qty)} u. tot.</div>
+        </div>
+        <div class="list-val in">${t.count}<span style="color:var(--text-3); font-size:10px; margin-left:4px;">ops</span></div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    // Freqüència sortides
+    const freqOut = Logic.topArticlesByFrequency(rows, 'sortides', 5);
+    document.getElementById('list-freq-out').innerHTML = freqOut.map((t, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(t.desc || t.article, 42)}</div>
+          <div class="list-name-sub mono">${t.article} · ${Utils.fmt(t.qty)} u. tot.</div>
+        </div>
+        <div class="list-val out">${t.count}<span style="color:var(--text-3); font-size:10px; margin-left:4px;">ops</span></div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    // Rotació
+    const rot = Logic.rotation(rows, 10);
+    document.getElementById('list-rotation').innerHTML = rot.map((r, i) => `
+      <div class="list-row">
+        <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+        <div>
+          <div class="list-name">${Utils.truncate(r.desc || r.article, 42)}</div>
+          <div class="list-name-sub mono">${r.article} · ${r.ops} ops · E${Utils.fmt(r.in, {compact:true})} / S${Utils.fmt(r.out, {compact:true})}</div>
+        </div>
+        <div class="list-val">${Utils.fmt(r.total, { compact: true })}</div>
+      </div>`).join('') || '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3)">Sense dades</div><div></div></div>';
+
+    // Heatmap
+    const hm = Logic.heatmap(rows);
+    const maxVal = Math.max(1, ...hm.data.map(d => d[2]));
+    this.ensureChart('chart-heatmap').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 50, right: 12, top: 16, bottom: 60 },
+      tooltip: { ...this.baseChartOpts().tooltip, formatter: p => `${hm.wdays[p.value[1]]} · ${hm.months[p.value[0]]}<br/><b>${Utils.fmt(p.value[2])}</b> u.` },
+      xAxis: { type: 'category', data: hm.months, axisLabel: { color: c.text3, fontSize: 10, rotate: 45 }, axisLine: { show: false }, axisTick: { show: false }, splitArea: { show: false } },
+      yAxis: { type: 'category', data: hm.wdays, axisLabel: { color: c.text2, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      visualMap: { min: 0, max: maxVal, calculable: false, orient: 'horizontal', left: 'center', bottom: 8,
+        textStyle: { color: c.text3, fontSize: 10 }, itemWidth: 10, itemHeight: 8,
+        inRange: { color: [c.bg2, c.accent + '60', c.accent] } },
+      series: [{ type: 'heatmap', data: hm.data, itemStyle: { borderColor: c.bg1, borderWidth: 2 } }],
+    });
+
+    // Balanç net
+    const bal = Logic.balance(rows, 20);
+    this.ensureChart('chart-balance').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 16, bottom: 12, containLabel: true },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'axis', formatter: p => {
+        const item = bal[bal.length - 1 - p[0].dataIndex];
+        const sign = item.net >= 0 ? '+' : '';
+        return `<b>${item.desc || item.article}</b><br/><span style="color:${c.text3}">${item.article}</span><br/>Entrades: ${Utils.fmt(item.in)}<br/>Sortides: ${Utils.fmt(item.out)}<br/>Net: <b style="color:${item.net>=0?c.in:c.out}">${sign}${Utils.fmt(item.net)}</b>`;
+      } },
+      yAxis: { type: 'category', data: bal.map(b => Utils.truncate(b.desc || b.article, 26)).reverse(), axisLabel: { color: c.text2, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      series: [{
+        type: 'bar',
+        data: bal.map(b => ({ value: b.net, itemStyle: { color: b.net >= 0 ? c.in : c.out, borderRadius: 3 } })).reverse(),
+        barWidth: 14,
+      }],
+    });
+  },
+
+  // -- SCALE (escalat òptim de compra) -------------------------
+  renderScale(rows) {
+    const c = this.colors();
+
+    // Articles amb compres (entrades > 0) — només aquests són analitzables
+    const articlesWithPurchases = new Set();
+    const articleDescs = new Map();
+    for (const r of rows) {
+      if (r.entrades > 0 && r.article) {
+        articlesWithPurchases.add(r.article);
+        if (r.descripcio) articleDescs.set(r.article, r.descripcio);
+      }
+    }
+    const articles = [...articlesWithPurchases].sort();
+
+    // Datalist (mostra article + descripció pel reconeixement visual)
+    const dl = document.getElementById('dl-articles-scale');
+    dl.innerHTML = articles.map(a => {
+      const d = articleDescs.get(a) || '';
+      return `<option value="${a}">${d}</option>`;
+    }).join('');
+
+    // Selecciona article: prioritza el filtre global, sinó l'input local, sinó el més actiu
+    const articleInput = document.getElementById('scale-article');
+    let articleCode = articleInput.value.trim();
+
+    if (!articleCode || !articlesWithPurchases.has(articleCode)) {
+      // Provem el filtre global si és exacte
+      const globalArticle = this.filters.article;
+      if (globalArticle && articlesWithPurchases.has(globalArticle)) {
+        articleCode = globalArticle;
+      } else {
+        // Article amb més entrades
+        const top = Logic.topArticles(rows, 'entrades', 1)[0];
+        if (top) articleCode = top.article;
+      }
+      if (articleCode) articleInput.value = articleCode;
+    }
+
+    const months = +document.getElementById('scale-months').value || 3;
+    const minP   = +document.getElementById('scale-min-purchases').value || 2;
+
+    const kpiGrid = document.getElementById('scale-kpis');
+    const recoEl  = document.getElementById('scale-recommendation');
+    const tiersEl = document.getElementById('scale-tiers');
+
+    if (!articleCode) {
+      kpiGrid.innerHTML = '';
+      recoEl.innerHTML  = '<div class="reco-empty">No hi ha articles amb compres a les dades filtrades.</div>';
+      tiersEl.innerHTML = '';
+      if (this.charts['chart-scale']) { this.charts['chart-scale'].clear(); }
+      return;
+    }
+
+    const a = Logic.scaleAnalysis(rows, articleCode, { coverage: months, minPurchases: minP });
+
+    // KPIs de l'article
+    kpiGrid.innerHTML = [
+      { dot: 'in',      label: 'Compres històric',  value: Utils.fmt(a.totalPurchased, { compact: true }), sub: `${Utils.fmt(a.totalPurchased)} u.` },
+      { dot: 'out',     label: 'Sortides històric', value: Utils.fmt(a.totalSold, { compact: true }), sub: `${Utils.fmt(a.totalSold)} u.` },
+      { dot: 'warn',    label: 'Consum mensual',    value: Utils.fmt(a.monthlyConsumption, { decimals: 0 }), sub: `≈ ${Utils.fmt(a.monthlyConsumption * months, { decimals: 0 })} u. en ${months} mes${months>1?'os':''}` },
+      { dot: 'neutral', label: 'Trams detectats',   value: String(a.tiers.length), sub: a.tiers.length === 0 ? 'sense escalat' : `${new Set(a.tiers.map(t => t.proveidor)).size} proveïdor${new Set(a.tiers.map(t => t.proveidor)).size>1?'s':''}` },
+    ].map(c => `
+      <div class="kpi">
+        <div class="kpi-label"><span class="kpi-dot ${c.dot}"></span>${c.label}</div>
+        <div class="kpi-value">${c.value}</div>
+        <div class="kpi-sub">${c.sub}</div>
+      </div>`).join('');
+
+    // Card de recomanació
+    if (!a.recommendation) {
+      const reason = a.tiers.length === 0
+        ? 'no hi ha trams detectats amb prou compres'
+        : a.monthlyConsumption === 0
+          ? 'no hi ha històric de sortides per estimar el consum'
+          : 'dades insuficients';
+      recoEl.innerHTML = `<div class="reco-empty"><b>${Utils.truncate(a.desc || articleCode, 50)}</b> · No es pot generar recomanació — ${reason}.</div>`;
+    } else {
+      const r = a.recommendation;
+      const t = r.tier;
+      const dtoText = t.dtoTotal > 0 ? ` amb <b>${t.dtoTotal.toFixed(1)}%</b> de descompte` : ' sense descompte';
+      const reachWarn = !r.reachable ? `<br/><span style="color:var(--warn); font-size:12px;">⚠ Aquest tram històricament no ha cobert el volum objectiu — pot caldre negociar la quantitat amb el proveïdor.</span>` : '';
+      const coverageText = r.actualCoverage ? `${r.actualCoverage.toFixed(1)} mesos` : '—';
+
+      recoEl.innerHTML = `
+        <div class="reco">
+          <div class="reco-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Recomanació de compra
+          </div>
+          <div class="reco-main">
+            Per cobrir <b>${months} mes${months>1?'os':''}</b> de consum (≈ <b>${Utils.fmt(r.targetQty)} u.</b>) de
+            <b>${Utils.truncate(a.desc || articleCode, 60)}</b>${a.desc ? ` <span class="mono" style="color:var(--text-3); font-size:11px;">(${articleCode})</span>` : ''},
+            compra <b>${Utils.fmt(r.suggestedQty)} u.</b> al proveïdor <b>${t.proveidor}</b>${dtoText}.
+            ${reachWarn}
+          </div>
+          <div class="reco-stats">
+            <div>
+              <div class="reco-stat-label">Preu unitari</div>
+              <div class="reco-stat-value">${Utils.fmtMoney(t.preuNet)}</div>
+            </div>
+            <div>
+              <div class="reco-stat-label">Cost total</div>
+              <div class="reco-stat-value">${Utils.fmtMoney(r.costTotal)}</div>
+            </div>
+            <div>
+              <div class="reco-stat-label">Estalvi vs preu spot</div>
+              <div class="reco-stat-value savings">−${r.savingsPct.toFixed(1)}%</div>
+              <div class="kpi-sub" style="margin-top:2px;">≈ ${Utils.fmtMoney(r.savingsTotal)}</div>
+            </div>
+            <div>
+              <div class="reco-stat-label">Cobertura</div>
+              <div class="reco-stat-value">${coverageText}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // Taula de trams
+    if (a.tiers.length === 0) {
+      tiersEl.innerHTML = '<div class="list-row"><div></div><div class="list-name" style="color:var(--text-3); padding:14px;">No s\'han detectat trams amb prou compres. Prova baixant el llindar mínim.</div><div></div></div>';
+    } else {
+      const bestPreu = Math.min(...a.tiers.map(t => t.preuNet));
+      tiersEl.innerHTML = a.tiers.map((t, i) => {
+        const isBest = t.preuNet === bestPreu;
+        return `
+          <div class="list-row" style="grid-template-columns: 24px 1fr auto auto; gap:14px;">
+            <div class="list-rank mono">${String(i+1).padStart(2,'0')}</div>
+            <div>
+              <div class="list-name">${Utils.truncate(t.proveidor, 30)}${isBest ? ' <span class="tag in" style="margin-left:6px;">millor</span>' : ''}</div>
+              <div class="list-name-sub mono">Dto ${t.dtoTotal.toFixed(1)}% · ${t.nCompres} compres · qty ${Utils.fmt(t.qtyMin)}–${Utils.fmt(t.qtyMax)} (mitj. ${Utils.fmt(t.qtyAvg, {decimals: 0})})</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="list-val mono">${Utils.fmtMoney(t.preuNet)}</div>
+              <div class="list-name-sub mono" style="margin-top:2px;">base ${Utils.fmtMoney(t.preuBase)}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Scatter chart: cada compra com a punt, eix X = qty, eix Y = preu net
+    this.renderScaleChart(a, c);
+  },
+
+  // Scatter chart de l'escalat — separat per claredat
+  renderScaleChart(a, c) {
+    if (!a.purchases.length) {
+      if (this.charts['chart-scale']) this.charts['chart-scale'].clear();
+      return;
+    }
+
+    // Color per proveïdor
+    const palette = [c.accent, c.info, c.out, c.warn, '#a78bfa', '#94e2d5', '#f5b7b1', '#7d8590'];
+    const providers = [...new Set(a.purchases.map(p => p.raoSocial))];
+    const colorOf = name => palette[providers.indexOf(name) % palette.length];
+
+    // Una sèrie per proveïdor — leyenda neta
+    const series = providers.map(prov => ({
+      name: Utils.truncate(prov, 24),
+      type: 'scatter',
+      data: a.purchases.filter(p => p.raoSocial === prov).map(p => ({
+        value: [p.entrades, +p.preuNet.toFixed(2)],
+        _raw: p,
+      })),
+      itemStyle: { color: colorOf(prov), opacity: 0.75, borderColor: c.bg1, borderWidth: 1 },
+      symbolSize: v => Math.min(22, Math.max(6, Math.log(v[0] + 1) * 4)),
+    }));
+
+    // Línia recomanada (si n'hi ha): marca el preu del tram recomanat
+    let markLines = [];
+    if (a.recommendation) {
+      markLines = [{
+        yAxis: a.recommendation.tier.preuNet,
+        lineStyle: { color: c.accent, width: 1.5, type: 'dashed' },
+        label: { formatter: 'tram recomanat', color: c.accent, fontSize: 10, position: 'insideEndTop' },
+      }];
+    }
+    if (markLines.length) {
+      series[0].markLine = { silent: true, symbol: 'none', data: markLines };
+    }
+
+    this.ensureChart('chart-scale').setOption({
+      ...this.baseChartOpts(),
+      grid: { left: 8, right: 24, top: 36, bottom: 28, containLabel: true },
+      legend: { textStyle: { color: c.text2, fontSize: 11 }, top: 4, itemWidth: 10, itemHeight: 10, type: 'scroll' },
+      tooltip: { ...this.baseChartOpts().tooltip, trigger: 'item', formatter: p => {
+        const r = p.data._raw;
+        const dtoTot = ((1 - (1 - r.dto1/100) * (1 - r.dto2/100)) * 100).toFixed(1);
+        return `<b>${r.raoSocial}</b><br/>
+          <span style="color:${c.text3}">${r.data ? Utils.fmtDate(r.data) : ''} · ${r.albara || ''}</span><br/>
+          Qty: <b>${Utils.fmt(r.entrades)}</b> u.<br/>
+          Preu base: ${Utils.fmtMoney(r.preu)}<br/>
+          Dto: ${dtoTot}% (${r.dto1}/${r.dto2})<br/>
+          <b>Preu net: ${Utils.fmtMoney(r.preuNet)}</b>`;
+      } },
+      xAxis: { type: 'value', name: 'Quantitat', nameLocation: 'middle', nameGap: 24, nameTextStyle: { color: c.text3, fontSize: 11 },
+        splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+      yAxis: { type: 'value', name: 'Preu net (€)', nameLocation: 'middle', nameGap: 50, nameTextStyle: { color: c.text3, fontSize: 11 },
+        splitLine: { lineStyle: { color: c.grid } }, axisLabel: { color: c.text3, fontSize: 11, formatter: v => Utils.fmtMoney(v) }, axisLine: { show: false }, axisTick: { show: false } },
+      series,
+    });
+  },
+};
+
+// ============================================================
+// APP — bootstrap + event wiring
+// ============================================================
+const App = {
+  async init() {
+    UI.initTheme();
+    this.wireEvents();
+    // Intentem recuperar dades de IndexedDB
+    Utils.loading('Buscant dades en memòria...');
+    const cached = await Data.loadCached();
+    Utils.hideLoading();
+    if (cached) {
+      this.onDataReady();
+      Utils.toast(`${Utils.fmt(cached.rows.length)} files carregades de la memòria local`);
+    }
+  },
+
+  wireEvents() {
+    // Navigation
+    document.querySelectorAll('.nav-item').forEach(n => {
+      n.addEventListener('click', () => UI.navigate(n.dataset.view));
+    });
+
+    // Theme
+    document.getElementById('theme-toggle').addEventListener('click', () => UI.toggleTheme());
+
+    // Hamburger (mobile)
+    document.getElementById('hamburger').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
+
+    // File input
+    const fileInput = document.getElementById('file-input');
+    const pick = () => fileInput.click();
+    document.getElementById('btn-import').addEventListener('click', pick);
+    document.getElementById('empty-pick-btn').addEventListener('click', e => { e.stopPropagation(); pick(); });
+    document.getElementById('drop-zone').addEventListener('click', pick);
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) await this.loadFile(file);
+      e.target.value = '';
+    });
+
+    // Drag & drop
+    const dz = document.getElementById('drop-zone');
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('dragover'); }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('dragover'); }));
+    dz.addEventListener('drop', async e => {
+      const file = e.dataTransfer.files[0];
+      if (file) await this.loadFile(file);
+    });
+
+    // També acceptem drop a tot el body (UX)
+    document.body.addEventListener('dragover', e => e.preventDefault());
+    document.body.addEventListener('drop', async e => {
+      e.preventDefault();
+      if (e.target.closest('#drop-zone')) return;  // ja gestionat
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.match(/\.(xlsx|xls|csv)$/i)) await this.loadFile(file);
+    });
+
+    // Filtres globals — debounced per inputs de text
+    const onFilterChange = Utils.debounce(() => UI.render(), 250);
+    ['f-date-from','f-date-to','f-article','f-client','f-tipus'].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', onFilterChange);
+      el.addEventListener('change', onFilterChange);
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => UI.resetFilters());
+
+    // Cerca global a la taula de moviments
+    document.getElementById('table-search').addEventListener('input', Utils.debounce((e) => {
+      if (!UI.table) return;
+      const q = e.target.value.trim();
+      if (!q) { UI.table.clearFilter(); return; }
+      UI.table.setFilter([
+        [
+          { field: 'article',    type: 'like', value: q },
+          { field: 'descripcio', type: 'like', value: q },
+          { field: 'raoSocial',  type: 'like', value: q },
+          { field: 'codi',       type: 'like', value: q },
+          { field: 'albara',     type: 'like', value: q },
+          { field: 'lot',        type: 'like', value: q },
+        ]
+      ]);
+    }, 200));
+
+    // Export CSV
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      if (!UI.table) { Utils.toast('Carrega dades primer', 'warn'); return; }
+      UI.table.download('csv', `stockflow-moviments-${new Date().toISOString().slice(0,10)}.csv`);
+    });
+
+    // Resize handling
+    window.addEventListener('resize', Utils.debounce(() => {
+      Object.values(UI.charts).forEach(c => c && c.resize && c.resize());
+    }, 100));
+  },
+
+  async loadFile(file) {
+    try {
+      Utils.loading(`Llegint ${file.name}...`);
+      // Cedim el thread perquè el spinner es pinti
+      await new Promise(r => setTimeout(r, 30));
+      await Data.loadFile(file);
+      await Data.persist();
+      this.onDataReady();
+      Utils.toast(`${Utils.fmt(Data.rows.length)} files carregades correctament`);
+    } catch (err) {
+      console.error(err);
+      Utils.toast('Error: ' + err.message, 'error', 5000);
+    } finally {
+      Utils.hideLoading();
+    }
+  },
+
+  onDataReady() {
+    UI.updateSidebarStats();
+    UI.populateFilterOptions();
+    UI.showApp();
+    UI.render();
+  },
+};
+
+// Bootstrap
+document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
+
+
+<script>
+/* === DEMO AUTOLOAD · datos ficticios (Proveedor A/B/C · Artículo 1/2/3) === */
+(function(){
+  if (window.__demoAutoload) return; window.__demoAutoload = true;
+  function badge(){
+    var b=document.createElement('div');
+    b.textContent='\u25CF Datos de ejemplo (ficticios)';
+    b.style.cssText='position:fixed;z-index:99999;bottom:14px;right:14px;'
+      +'font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;background:#16233B;'
+      +'padding:8px 13px;border-radius:100px;box-shadow:0 6px 20px -6px rgba(0,0,0,.5);opacity:.94;';
+    document.body.appendChild(b);
+  }
+  async function toFile(url,name,type){
+    var r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('fetch');
+    var b=await r.blob(); return new File([b],name,{type:type||b.type||'application/octet-stream'});
+  }
+  function feed(id,file){
+    var inp=document.getElementById(id); if(!inp) return false;
+    var dt=new DataTransfer(); dt.items.add(file);
+    inp.files=dt.files; inp.dispatchEvent(new Event('change',{bubbles:true})); return true;
+  }
+  async function run(){ try{ await DEMO(); badge(); }catch(e){ /* file:// u offline: carga manual disponible */ } }
+  function boot(){ setTimeout(run, 500); }
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  async function DEMO(){ feed('file-input', await toFile('./stockflow_exemple.xlsx','stockflow_exemple.xlsx')); }
+})();
+</script>
+</body>
+</html>

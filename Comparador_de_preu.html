@@ -1,0 +1,655 @@
+
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparador de Preus · Gratuït</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0d0f; --surface: #16161a; --border: #2a2a32;
+    --accent: #e8ff47; --accent2: #ff6b35; --text: #f0f0f0; --muted: #6b6b7a;
+    --success: #4ade80; --danger: #f87171; --info: #60a5fa;
+    --mono: 'DM Mono', monospace; --sans: 'Syne', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+  .header { border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; gap: 16px; background: var(--surface); }
+  .header-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .header p { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .free-badge { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.3); color: var(--success); font-family: var(--mono); font-size: 10px; padding: 3px 10px; border-radius: 20px; margin-left: auto; }
+  .main { padding: 28px 32px; max-width: 1100px; margin: 0 auto; }
+
+  /* REGEX CONFIG */
+  .config-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 24px; }
+  .config-box h3 { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+  .config-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .config-box label { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .config-box input[type=text], .config-box input[type=number] {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; font-family: var(--mono); font-size: 12px; color: var(--text);
+    outline: none; transition: border-color 0.2s; width: 120px;
+  }
+  .config-box input:focus { border-color: var(--accent); }
+  .regex-preview { font-family: var(--mono); font-size: 12px; color: var(--accent); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; }
+  .config-hint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+  /* STEPS */
+  .steps { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; position: relative; transition: border-color 0.2s; }
+  .step.done { border-color: var(--accent); }
+  .step-num { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; text-transform: uppercase; }
+  .step h2 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .step p { font-size: 12px; color: var(--muted); margin-bottom: 14px; font-family: var(--mono); }
+  .upload-zone { border: 1px dashed var(--border); border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg); }
+  .upload-zone:hover { border-color: var(--accent); background: rgba(232,255,71,0.03); }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 22px; margin-bottom: 6px; }
+  .upload-zone span { font-size: 12px; color: var(--muted); font-family: var(--mono); display: block; }
+  .file-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(232,255,71,0.1); border: 1px solid rgba(232,255,71,0.3); border-radius: 4px; padding: 4px 10px; font-size: 11px; font-family: var(--mono); color: var(--accent); margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .step-check { position: absolute; top: 14px; right: 14px; color: var(--accent); font-size: 14px; display: none; }
+  .step.done .step-check { display: block; }
+
+  .analyze-row { margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+  .btn-analyze { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 12px 28px; font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+  .btn-analyze:hover:not(:disabled) { background: #d4eb00; transform: translateY(-1px); }
+  .btn-analyze:disabled { background: #3a3a20; color: var(--muted); cursor: not-allowed; transform: none; }
+  .status-msg { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .progress-bar-wrap { background: var(--border); border-radius: 4px; height: 4px; width: 200px; overflow: hidden; display: none; margin-top: 6px; }
+  .progress-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; width: 0%; }
+
+  .log-panel { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); max-height: 140px; overflow-y: auto; margin-bottom: 20px; display: none; }
+  .log-line { margin-bottom: 3px; }
+  .log-line.ok { color: var(--success); } .log-line.err { color: var(--danger); } .log-line.info { color: var(--info); }
+
+  .results-section { display: none; }
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .results-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+  .results-subtitle { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.06); }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  thead tr { background: var(--bg); border-bottom: 1px solid var(--border); }
+  th { padding: 10px 14px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid rgba(42,42,50,0.5); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-article { color: var(--accent); font-weight: 500; }
+  .td-price { text-align: right; }
+  .badge-diff { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+  .badge-high { background: rgba(248,113,113,0.15); color: var(--danger); border: 1px solid rgba(248,113,113,0.3); }
+  .badge-mid  { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+  .badge-low  { background: rgba(74,222,128,0.1); color: var(--success); border: 1px solid rgba(74,222,128,0.2); }
+  .badge-neg  { background: rgba(74,222,128,0.1); color: var(--success); border: 1px solid rgba(74,222,128,0.2); }
+  .no-match { color: var(--muted); font-style: italic; font-size: 11px; }
+
+  .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .card-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .card-value { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .card-value.red { color: var(--danger); } .card-value.yellow { color: #fbbf24; }
+  .card-value.green { color: var(--success); } .card-value.white { color: var(--text); }
+
+  .error-box { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; padding: 12px 16px; font-family: var(--mono); font-size: 12px; color: var(--danger); margin-bottom: 16px; display: none; }
+  .empty-state { text-align: center; padding: 40px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.2); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TEXT VIEWER */
+  .text-viewer { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); max-height: 200px; overflow-y: auto; margin-bottom: 20px; display: none; white-space: pre-wrap; line-height: 1.6; }
+  .text-viewer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .text-viewer-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .btn-toggle { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; font-family: var(--mono); font-size: 10px; color: var(--muted); cursor: pointer; }
+  .btn-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .highlight { background: rgba(232,255,71,0.2); color: var(--accent); border-radius: 2px; padding: 0 2px; }
+
+  @media (max-width: 700px) {
+    .steps { grid-template-columns: 1fr; }
+    .summary-cards { grid-template-columns: repeat(2,1fr); }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">⚖</div>
+  <div>
+    <h1>Comparador de Preus · Factures</h1>
+    <p>PDF.js + regex · sense IA · sense cost</p>
+  </div>
+  <span class="free-badge">✓ 100% gratuït</span>
+</div>
+
+<div class="main">
+
+  <!-- CONFIGURACIÓ REGEX -->
+  <div class="config-box">
+    <h3>⚙ Configuració del codi d'article</h3>
+    <div class="config-row">
+      <label>Longitud del codi:</label>
+      <input type="number" id="code-length" value="8" min="1" max="20" oninput="updateRegex()">
+      <label>Tipus:</label>
+      <select id="code-type" onchange="updateRegex()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;">
+        <option value="digits">Només números (ex: 34781593)</option>
+        <option value="alphanum">Lletres i números (ex: AB1234)</option>
+        <option value="custom">Personalitzat</option>
+      </select>
+      <label id="custom-label" style="display:none">Regex:</label>
+      <input type="text" id="custom-regex" value="\d{8}" style="display:none;width:160px" oninput="updateRegex()">
+      <div class="regex-preview" id="regex-preview">\b\d{8}\b</div>
+    </div>
+    <div class="config-hint" id="config-hint">Buscarà seqüències d'exactament 8 dígits. Els que no estiguin a la teva base de dades s'ignoraran automàticament.</div>
+  </div>
+
+  <!-- STEPS -->
+  <div class="steps">
+    <div class="step" id="step1">
+      <span class="step-check">✓</span>
+      <div class="step-num">Pas 01</div>
+      <h2>Base de dades de preus</h2>
+      <p>Excel amb columnes: article, descripció, preu</p>
+      <div class="upload-zone" onclick="document.getElementById('input-excel').click()">
+        <input type="file" id="input-excel" accept=".xlsx,.xls,.csv">
+        <div class="upload-icon">📊</div>
+        <span>Arrossega o fes clic — Excel o CSV</span>
+      </div>
+      <div id="excel-badge" style="text-align:center;display:none"></div>
+    </div>
+    <div class="step" id="step2">
+      <span class="step-check">✓</span>
+      <div class="step-num">Pas 02</div>
+      <h2>Factures dels proveïdors</h2>
+      <p>Un o diversos PDFs de factures</p>
+      <div class="upload-zone" onclick="document.getElementById('input-pdf').click()">
+        <input type="file" id="input-pdf" accept=".pdf" multiple>
+        <div class="upload-icon">📄</div>
+        <span>Arrossega o fes clic — múltiples PDFs</span>
+      </div>
+      <div id="pdf-badge" style="text-align:center;display:none"></div>
+    </div>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div class="analyze-row">
+    <button class="btn-analyze" id="btn-analyze" disabled onclick="runAnalysis()">
+      <span id="btn-text">⚡ Analitzar factures</span>
+    </button>
+    <div>
+      <div class="status-msg" id="status-msg">Puja l'Excel i almenys un PDF per continuar</div>
+      <div class="progress-bar-wrap" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log-panel" id="log-panel"></div>
+
+  <!-- TEXT EXTRET DEL PDF (debug) -->
+  <div id="text-viewer-wrap" style="display:none">
+    <div class="text-viewer-header">
+      <span class="text-viewer-title">Text extret del PDF (per verificar)</span>
+      <button class="btn-toggle" onclick="toggleTextViewer()">Mostrar / Amagar</button>
+    </div>
+    <div class="text-viewer" id="text-viewer"></div>
+  </div>
+
+  <div class="results-section" id="results-section">
+    <div class="summary-cards" id="summary-cards"></div>
+    <div class="results-header">
+      <div>
+        <div class="results-title">Resultats de la comparació</div>
+        <div class="results-subtitle" id="results-subtitle"></div>
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="filterResults('all',this)">Tots</button>
+        <button class="filter-btn" onclick="filterResults('high',this)">≥15%</button>
+        <button class="filter-btn" onclick="filterResults('mid',this)">≥5%</button>
+        <button class="filter-btn" onclick="filterResults('nomatch',this)">Sense match</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Codi article</th>
+            <th>La teva descripció</th>
+            <th style="text-align:right">Preu factura</th>
+            <th style="text-align:right">El teu preu</th>
+            <th style="text-align:right">Diferència</th>
+            <th style="text-align:right">% Dif.</th>
+            <th>Font PDF</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─── STATE ──────────────────────────────────────────────────────
+let myPrices = {};
+let myPricesArray = [];
+let pdfFiles = [];
+let allResults = [];
+let allExtractedTexts = [];
+
+// ─── REGEX CONFIG ───────────────────────────────────────────────
+function updateRegex() {
+  const len = document.getElementById('code-length').value;
+  const type = document.getElementById('code-type').value;
+  const customInput = document.getElementById('custom-regex');
+  const customLabel = document.getElementById('custom-label');
+  const preview = document.getElementById('regex-preview');
+  const hint = document.getElementById('config-hint');
+
+  let pattern = '';
+  if (type === 'digits') {
+    pattern = `\\b\\d{${len}}\\b`;
+    hint.textContent = `Buscarà seqüències d'exactament ${len} dígits. Els que no estiguin a la BD s'ignoraran.`;
+    customInput.style.display = 'none'; customLabel.style.display = 'none';
+  } else if (type === 'alphanum') {
+    pattern = `\\b[A-Z0-9]{${len}}\\b`;
+    hint.textContent = `Buscarà seqüències de ${len} caràcters alfanumèrics (majúscules i números).`;
+    customInput.style.display = 'none'; customLabel.style.display = 'none';
+  } else {
+    pattern = customInput.value || `\\d{8}`;
+    hint.textContent = `Regex personalitzada. S'afegirà \\b...\\b per delimitar paraules.`;
+    customInput.style.display = 'block'; customLabel.style.display = 'block';
+  }
+  preview.textContent = pattern;
+}
+
+function getRegex() {
+  const type = document.getElementById('code-type').value;
+  const len = document.getElementById('code-length').value;
+  let pattern = '';
+  if (type === 'digits') pattern = `\\d{${len}}`;
+  else if (type === 'alphanum') pattern = `[A-Z0-9]{${len}}`;
+  else pattern = document.getElementById('custom-regex').value || `\\d{8}`;
+  return new RegExp(`\\b(${pattern})\\b`, 'g');
+}
+
+// ─── EXCEL ──────────────────────────────────────────────────────
+document.getElementById('input-excel').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  await loadExcel(file);
+});
+
+async function loadExcel(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!rows.length) throw new Error('El fitxer Excel sembla buit.');
+
+    const colMap = {};
+    for (const k of Object.keys(rows[0])) {
+      const kn = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      if (/^art/.test(kn)) colMap.article = k;
+      if (/^desc/.test(kn)) colMap.desc = k;
+      if (/^pre/.test(kn) || /^pric/.test(kn)) colMap.price = k;
+    }
+    if (!colMap.article || !colMap.price) throw new Error(`No trobo columnes. Trobades: ${Object.keys(rows[0]).join(', ')}`);
+
+    myPrices = {}; myPricesArray = [];
+    for (const row of rows) {
+      const code = String(row[colMap.article]).trim().toUpperCase();
+      const price = parseFloat(String(row[colMap.price]).replace(',','.'));
+      const desc = row[colMap.desc] ? String(row[colMap.desc]).trim() : '';
+      if (code && !isNaN(price)) {
+        myPrices[code] = { desc, price };
+        myPricesArray.push({ code, desc, price });
+      }
+    }
+
+    const count = myPricesArray.length;
+    document.getElementById('excel-badge').innerHTML = `<div class="file-badge"><span class="status-dot"></span>${file.name} · ${count} articles</div>`;
+    document.getElementById('excel-badge').style.display = 'block';
+    document.getElementById('step1').classList.add('done');
+    checkReady();
+    log(`Excel carregat: ${count} articles`, 'ok');
+  } catch(err) { showError('Error Excel: ' + err.message); }
+}
+
+// ─── PDF ────────────────────────────────────────────────────────
+document.getElementById('input-pdf').addEventListener('change', e => {
+  pdfFiles = Array.from(e.target.files); if (!pdfFiles.length) return;
+  document.getElementById('pdf-badge').innerHTML = `<div class="file-badge"><span class="status-dot"></span>${pdfFiles.length} PDF(s): ${pdfFiles.map(f=>`<span>${f.name}</span>`).join(' ')}</div>`;
+  document.getElementById('pdf-badge').style.display = 'block';
+  document.getElementById('step2').classList.add('done');
+  checkReady();
+});
+
+// Drag & drop
+[0,1].forEach(i => {
+  const step = document.getElementById(`step${i+1}`);
+  const zone = step.querySelector('.upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor='var(--accent)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor=''; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.style.borderColor='';
+    if (i === 0) loadExcel(e.dataTransfer.files[0]);
+    else { pdfFiles = Array.from(e.dataTransfer.files).filter(f=>f.type==='application/pdf'); document.getElementById('input-pdf').dispatchEvent(new Event('change')); }
+  });
+});
+
+function checkReady() {
+  const ready = myPricesArray.length > 0 && pdfFiles.length > 0;
+  document.getElementById('btn-analyze').disabled = !ready;
+  if (ready) setStatus('Tot llest! Fes clic per analitzar.');
+}
+
+// ─── EXTREURE TEXT DEL PDF (PDF.js) ────────────────────────────
+// Estratègia: agrupem els items de text per la seva posició Y (fila visual)
+// Dins de cada fila, els ordenem per X (d'esquerra a dreta)
+// Això reconstrueix les línies reals del PDF independentment del format
+async function extractTextFromPDF(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let fullText = '';
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    // Agrupem items per posició Y (arrodonida a 1 decimal per tolerar petites variacions)
+    const lineMap = new Map();
+    for (const item of content.items) {
+      if (!item.str.trim()) continue;
+      const y = Math.round(item.transform[5] * 10) / 10; // coordenada Y
+      const x = item.transform[4];                        // coordenada X
+      if (!lineMap.has(y)) lineMap.set(y, []);
+      lineMap.get(y).push({ x, str: item.str });
+    }
+
+    // Ordenem les files de dalt a baix (Y descendent en PDF), i dins de cada fila d'esquerra a dreta
+    const sortedYs = [...lineMap.keys()].sort((a, b) => b - a);
+    for (const y of sortedYs) {
+      const items = lineMap.get(y).sort((a, b) => a.x - b.x);
+      const lineText = items.map(i => i.str).join(' ');
+      fullText += lineText + '\n';
+    }
+    fullText += '\n'; // separador entre pàgines
+  }
+  return fullText;
+}
+
+// ─── EXTREURE PARELLS CODI+PREU DEL TEXT ────────────────────────
+// Lògica:
+// 1. Per cada línia, busca codis d'article amb la regex
+// 2. Un cop trobat el codi, busca NOMÉS els preus que apareixen A LA DRETA
+//    del codi en la mateixa línia (el preu unitari sempre va després del codi)
+// 3. Agafa el PRIMER preu a la dreta (no el total, que sol ser l'últim)
+function extractCodesAndPrices(text, regex) {
+  const results = [];
+  const lines = text.split('\n');
+
+  // Regex de preu: números amb exactament 1,2,3 decimals (ex: 12.50 o 12,50)
+  // Excloem números que semblen anys (1900-2099) o quantitats sense decimals
+  const priceRegex = /\b(\d{1,7}[.,]\d{2,4})\b/g;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const upperLine = line.toUpperCase();
+
+    // Resetem la regex per cada línia (important per a 'g' flag)
+    regex.lastIndex = 0;
+    const codeMatches = [...upperLine.matchAll(regex)];
+    if (!codeMatches.length) continue;
+
+    for (const codeMatch of codeMatches) {
+      const code = codeMatch[1] || codeMatch[0];
+      const codeEndPos = codeMatch.index + codeMatch[0].length;
+
+      // Busca tots els preus de la línia
+      priceRegex.lastIndex = 0;
+      const allPrices = [...line.matchAll(priceRegex)];
+
+      // Filtra NOMÉS els preus que apareixen A LA DRETA del codi
+      const pricesAfterCode = allPrices.filter(pm => pm.index >= codeEndPos);
+
+      let unitPrice = null;
+      if (pricesAfterCode.length > 0) {
+        // Agafa el PRIMER preu a la dreta = preu unitari
+        // (el total sol ser l'últim de la línia)
+        unitPrice = parseFloat(pricesAfterCode[0][1].replace(',', '.'));
+      } else if (allPrices.length > 0) {
+        // Fallback: si no hi ha preus a la dreta, agafa el més proper
+        let minDist = Infinity;
+        for (const pm of allPrices) {
+          const dist = Math.abs(pm.index - codeMatch.index);
+          if (dist < minDist) { minDist = dist; unitPrice = parseFloat(pm[1].replace(',', '.')); }
+        }
+      }
+
+      results.push({ code, price: unitPrice, line: line.trim() });
+    }
+  }
+
+  // Elimina duplicats (mateix codi, ens quedem el primer)
+  const seen = new Set();
+  return results.filter(r => {
+    if (seen.has(r.code)) return false;
+    seen.add(r.code); return true;
+  });
+}
+
+// ─── ANALYSIS ───────────────────────────────────────────────────
+async function runAnalysis() {
+  hideError(); allResults = []; allExtractedTexts = [];
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('text-viewer-wrap').style.display = 'none';
+  document.getElementById('log-panel').style.display = 'block';
+  document.getElementById('log-panel').innerHTML = '';
+
+  const btn = document.getElementById('btn-analyze');
+  btn.disabled = true;
+  document.getElementById('btn-text').innerHTML = '<span class="spinner"></span> Analitzant...';
+  setProgress(0);
+  document.getElementById('progress-wrap').style.display = 'block';
+
+  const regex = getRegex();
+
+  try {
+    for (let i = 0; i < pdfFiles.length; i++) {
+      const file = pdfFiles[i];
+      log(`━━ Processant: ${file.name}`, 'info');
+      setStatus(`Extraient text de ${file.name}...`);
+      setProgress((i / pdfFiles.length) * 90);
+
+      // PAS 1: Extreure tot el text del PDF (PDF.js, gratuït)
+      const text = await extractTextFromPDF(file);
+      allExtractedTexts.push({ name: file.name, text });
+      log(`  → Text extret: ${text.length} caràcters`, 'ok');
+
+      // PAS 2: Buscar codis amb regex
+      const found = extractCodesAndPrices(text, regex);
+      log(`  → Codis trobats al PDF: ${found.length}`, 'ok');
+
+      // PAS 3: Match contra la base de dades (JS pur, instantani)
+      let matched = 0;
+      for (const item of found) {
+        const entry = myPrices[item.code];
+
+        if (entry) {
+          matched++;
+          let diff = null, diffPct = null;
+          if (item.price !== null) {
+            diff = item.price - entry.price;
+            diffPct = (diff / entry.price) * 100;
+          }
+          allResults.push({
+            code: item.code,
+            desc: entry.desc,
+            invoicePrice: item.price,
+            myPrice: entry.price,
+            diff, diffPct,
+            matched: true,
+            sourceLine: item.line,
+            source: file.name
+          });
+        } else {
+          // Codi trobat al PDF però no existeix a la nostra BD → l'ignorem (era un altre número de 8 dígits)
+          log(`  → Ignorat: "${item.code}" (no és a la BD)`, 'info');
+        }
+      }
+      log(`  → ${matched} articles reconeguts a la BD`, 'ok');
+    }
+
+    // Ordenar per % diferència descendent
+    allResults.sort((a,b) => {
+      if (a.diffPct===null && b.diffPct===null) return 0;
+      if (a.diffPct===null) return 1; if (b.diffPct===null) return -1;
+      return b.diffPct - a.diffPct;
+    });
+
+    setProgress(100);
+    renderResults(allResults);
+    showExtractedTexts();
+    document.getElementById('results-section').style.display = 'block';
+    setStatus(`Anàlisi completada · ${allResults.length} articles reconeguts`);
+
+  } catch(err) {
+    showError('Error: ' + err.message);
+    log('ERROR: ' + err.message, 'err');
+  }
+
+  btn.disabled = false;
+  document.getElementById('btn-text').innerHTML = '⚡ Analitzar de nou';
+  document.getElementById('progress-wrap').style.display = 'none';
+}
+
+// ─── MOSTRAR TEXT EXTRET (per debug/verificació) ─────────────────
+function showExtractedTexts() {
+  const viewer = document.getElementById('text-viewer');
+  const regex = getRegex();
+  let html = '';
+  for (const t of allExtractedTexts) {
+    html += `<strong style="color:var(--info)">── ${t.name} ──</strong>\n`;
+    // Marca els codis trobats en groc
+    const highlighted = t.text.replace(regex, match => `<span class="highlight">${match}</span>`);
+    html += highlighted + '\n\n';
+  }
+  viewer.innerHTML = html;
+  document.getElementById('text-viewer-wrap').style.display = 'block';
+}
+
+function toggleTextViewer() {
+  const v = document.getElementById('text-viewer');
+  v.style.display = v.style.display === 'none' ? 'block' : 'none';
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────
+function renderResults(results, filter = 'all') {
+  const filtered = filterData(results, filter);
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = '';
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Cap resultat · comprova la configuració del codi o el panell de text extret</td></tr>`;
+  } else {
+    for (const r of filtered) {
+      const tr = document.createElement('tr');
+      let pctHtml = r.invoicePrice === null ? '<span class="no-match">Preu no trobat</span>' : '—';
+      if (r.diffPct !== null) {
+        const abs = Math.abs(r.diffPct);
+        const cls = abs>=15?'badge-high':abs>=5?'badge-mid':r.diffPct<0?'badge-neg':'badge-low';
+        pctHtml = `<span class="badge-diff ${cls}">${r.diffPct>0?'▲':'▼'} ${r.diffPct.toFixed(1)}%</span>`;
+      }
+      tr.innerHTML = `
+        <td class="td-article">${r.code}</td>
+        <td style="font-size:11px">${r.desc}</td>
+        <td class="td-price">${r.invoicePrice!==null?r.invoicePrice.toFixed(2)+' €':'—'}</td>
+        <td class="td-price">${r.myPrice.toFixed(2)} €</td>
+        <td class="td-price" style="font-family:var(--mono)">${r.diff!==null?(r.diff>0?'+':'')+r.diff.toFixed(2)+' €':'—'}</td>
+        <td class="td-price">${pctHtml}</td>
+        <td style="font-size:10px;color:var(--muted);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.source}">${r.source}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  const withPrice = results.filter(r=>r.diffPct!==null);
+  const highDiff = withPrice.filter(r=>r.diffPct>=15).length;
+  const totalOver = withPrice.reduce((s,r)=>r.diff>0?s+r.diff:s,0);
+  const noPrice = results.filter(r=>r.invoicePrice===null).length;
+
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="card"><div class="card-label">Articles reconeguts</div><div class="card-value white">${results.length}</div></div>
+    <div class="card"><div class="card-label">Dif. alta (≥15%)</div><div class="card-value red">${highDiff}</div></div>
+    <div class="card"><div class="card-label">Sobrecoste total</div><div class="card-value yellow">+${totalOver.toFixed(2)} €</div></div>
+    <div class="card"><div class="card-label">Preu no detectat</div><div class="card-value white">${noPrice}</div></div>
+  `;
+  document.getElementById('results-subtitle').textContent = `${filtered.length} de ${results.length} articles · ordenats per % diferència`;
+}
+
+function filterData(results, filter) {
+  if (filter==='all') return results;
+  if (filter==='high') return results.filter(r=>r.diffPct!==null&&r.diffPct>=15);
+  if (filter==='mid') return results.filter(r=>r.diffPct!==null&&r.diffPct>=5);
+  if (filter==='nomatch') return results.filter(r=>r.invoicePrice===null);
+  return results;
+}
+
+function filterResults(f, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderResults(allResults, f);
+}
+
+function setProgress(v) { document.getElementById('progress-bar').style.width=v+'%'; }
+function setStatus(m) { document.getElementById('status-msg').textContent=m; }
+function showError(m) { const b=document.getElementById('error-box'); b.textContent=m; b.style.display='block'; }
+function hideError() { document.getElementById('error-box').style.display='none'; }
+function log(msg, type='') {
+  const p=document.getElementById('log-panel');
+  const l=document.createElement('div'); l.className='log-line '+type; l.textContent='› '+msg;
+  p.appendChild(l); p.scrollTop=p.scrollHeight;
+}
+</script>
+
+<script>
+/* === DEMO AUTOLOAD · datos ficticios (Proveedor A/B/C · Artículo 1/2/3) === */
+(function(){
+  if (window.__demoAutoload) return; window.__demoAutoload = true;
+  function badge(){
+    var b=document.createElement('div');
+    b.textContent='\u25CF Datos de ejemplo (ficticios)';
+    b.style.cssText='position:fixed;z-index:99999;bottom:14px;right:14px;'
+      +'font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;background:#16233B;'
+      +'padding:8px 13px;border-radius:100px;box-shadow:0 6px 20px -6px rgba(0,0,0,.5);opacity:.94;';
+    document.body.appendChild(b);
+  }
+  async function toFile(url,name,type){
+    var r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('fetch');
+    var b=await r.blob(); return new File([b],name,{type:type||b.type||'application/octet-stream'});
+  }
+  function feed(id,file){
+    var inp=document.getElementById(id); if(!inp) return false;
+    var dt=new DataTransfer(); dt.items.add(file);
+    inp.files=dt.files; inp.dispatchEvent(new Event('change',{bubbles:true})); return true;
+  }
+  async function run(){ try{ await DEMO(); badge(); }catch(e){ /* file:// u offline: carga manual disponible */ } }
+  function boot(){ setTimeout(run, 500); }
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  async function DEMO(){ feed('input-excel', await toFile('./comparador_bd.xlsx','comparador_bd.xlsx'));feed('input-pdf', await toFile('./factura_exemple.pdf','factura_exemple.pdf','application/pdf'));await new Promise(function(r){setTimeout(r,1400);});var b=document.getElementById('btn-analyze'); if(b){ b.disabled=false; b.click(); } }
+})();
+</script>
+</body>
+</html>
